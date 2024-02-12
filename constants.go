@@ -1,4 +1,4 @@
-package go_jito
+package jito_go
 
 import (
 	"github.com/gagliardetto/solana-go"

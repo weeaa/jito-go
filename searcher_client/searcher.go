@@ -13,30 +13,55 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"os"
-	"strings"
 	"sync"
-	"time"
 )
 
-var (
-	ErrTransportError    = errors.New("transport error")
-	ErrClientError       = errors.New("client error")
-	ErrBundleRejection   = errors.New("bundle rejection error")
-	ErrInternalError     = errors.New("internal error")
-	ErrSimulationFailure = errors.New("simulation failure")
-)
+type BundleRejectionError struct {
+	Message string
+}
+
+func (e BundleRejectionError) Error() string {
+	return e.Message
+}
+
+func NewStateAuctionBidRejectedError(auction string, tip uint64) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle lost state auction, auction: %s, tip %d lamports", auction, tip),
+	}
+}
+
+func NewWinningBatchBidRejectedError(auction string, tip uint64) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle won state auction but failed global auction, auction %s, tip %d lamports", auction, tip),
+	}
+}
+
+func NewSimulationFailureError(tx string, message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle simulation failure on tx %s, message: %s", tx, message),
+	}
+}
+
+func NewInternalError(message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("internal error %s", message),
+	}
+}
+
+func NewDroppedBundle(message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle dropped %s", message),
+	}
+}
 
 type Client struct {
 	GrpcConn *grpc.ClientConn
-	GrpcCtx  context.Context
-	Keypair  *Keypair
 	RpcConn  *rpc.Client
 	logger   zerolog.Logger
 
-	SearcherService       proto.SearcherServiceClient
-	AuthenticationService proto.AuthServiceClient
+	SearcherService proto.SearcherServiceClient
 
-	Auth Authentication
+	Auth *pkg.AuthenticationService
 }
 
 type Authentication struct {
@@ -46,53 +71,45 @@ type Authentication struct {
 	mu          sync.Mutex
 }
 
-type Keypair struct {
-	PublicKey  solana.PublicKey
-	PrivateKey solana.PrivateKey
-}
-
 // NewSearcherClient is a function that creates a new instance of a SearcherClient.
-func NewSearcherClient(grpcDialURL string, nodeURL string, privateKey solana.PrivateKey) (*Client, error) {
-	if !strings.Contains(nodeURL, "http") {
-		return nil, fmt.Errorf("invalid node URL: %s", nodeURL)
-	}
-
+func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*Client, error) {
 	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	if err != nil {
 		return nil, err
 	}
 
-	authService := proto.NewAuthServiceClient(conn)
 	searcherService := proto.NewSearcherServiceClient(conn)
+	authService := pkg.NewAuthenticationService(conn, privateKey)
+	if err = authService.AuthenticateAndRefresh(proto.Role_SEARCHER); err != nil {
+		return nil, err
+	}
 
 	return &Client{
-		GrpcConn:              conn,
-		RpcConn:               rpc.New(nodeURL),
-		SearcherService:       searcherService,
-		AuthenticationService: authService,
-		Keypair:               &Keypair{PrivateKey: privateKey, PublicKey: privateKey.PublicKey()},
-		logger:                zerolog.New(os.Stdout).With().Timestamp().Str("service", "searcher-client").Logger(),
+		GrpcConn:        conn,
+		RpcConn:         rpcClient,
+		SearcherService: searcherService,
+		Auth:            authService,
+		logger:          zerolog.New(os.Stdout).With().Timestamp().Str("service", "searcher-client").Logger(),
 	}, nil
 }
 
+// NewMemPoolStream creates a new MemPool subscription.
 func (c *Client) NewMemPoolStream(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
-	return c.SearcherService.SubscribeMempool(c.GrpcCtx, &proto.MempoolSubscription{Msg: &proto.MempoolSubscription_WlaV0Sub{
+	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{Msg: &proto.MempoolSubscription_WlaV0Sub{
 		WlaV0Sub: &proto.WriteLockedAccountSubscriptionV0{
 			Accounts: accounts,
 		},
 	}, Regions: regions})
 }
 
-func (c *Client) SubscribeMemPoolAccounts(ctx context.Context, accounts, regions []string) (chan *solana.Transaction, error) {
+// SubscribeMemPoolAccounts creates a new MemPool subscription and sends transactions to the provided channel.
+func (c *Client) SubscribeMemPoolAccounts(ctx context.Context, accounts, regions []string, ch chan *solana.Transaction) error {
 	sub, err := c.NewMemPoolStream(accounts, regions)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	notifications := make(chan *solana.Transaction)
-
-	go func(ch chan *solana.Transaction) {
-		time.Sleep(200 * time.Millisecond)
+	go func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -114,34 +131,38 @@ func (c *Client) SubscribeMemPoolAccounts(ctx context.Context, accounts, regions
 							return
 						}
 
-						notifications <- tx
+						ch <- tx
 					}(transaction)
 				}
 			}
 		}
-	}(notifications)
+	}()
 
-	return notifications, nil
+	return nil
 }
 
 func (c *Client) GetRegions() (*proto.GetRegionsResponse, error) {
-	return c.SearcherService.GetRegions(c.GrpcCtx, &proto.GetRegionsRequest{})
+	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &proto.GetRegionsRequest{})
 }
 
 func (c *Client) GetConnectedLeaders() (*proto.ConnectedLeadersResponse, error) {
-	return c.SearcherService.GetConnectedLeaders(c.GrpcCtx, &proto.ConnectedLeadersRequest{})
+	return c.SearcherService.GetConnectedLeaders(c.Auth.GrpcCtx, &proto.ConnectedLeadersRequest{})
 }
 
 func (c *Client) GetConnectedLeadersRegioned(regions ...string) (*proto.ConnectedLeadersRegionedResponse, error) {
-	return c.SearcherService.GetConnectedLeadersRegioned(c.GrpcCtx, &proto.ConnectedLeadersRegionedRequest{Regions: regions})
+	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &proto.ConnectedLeadersRegionedRequest{Regions: regions})
 }
 
 func (c *Client) GetTipAccounts() (*proto.GetTipAccountsResponse, error) {
-	return c.SearcherService.GetTipAccounts(c.GrpcCtx, &proto.GetTipAccountsRequest{})
+	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &proto.GetTipAccountsRequest{})
 }
 
 func (c *Client) GetNextScheduledLeader(regions ...string) (*proto.NextScheduledLeaderResponse, error) {
-	return c.SearcherService.GetNextScheduledLeader(c.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions})
+	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions})
+}
+
+func (c *Client) SubscribeBundleResults() (proto.SearcherService_SubscribeBundleResultsClient, error) {
+	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &proto.SubscribeBundleResultsRequest{})
 }
 
 // BroadcastBundle is a function that sends a bundle of packets to the SearcherService.
@@ -151,36 +172,27 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction) (*proto.Sen
 		return nil, err
 	}
 
-	return c.SearcherService.SendBundle(c.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}})
+	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}})
 }
 
 // BroadcastBundleWithConfirmation is a function that sends a bundle of packets to the SearcherService and subscribes to the results.
-func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transaction) (*proto.SendBundleResponse, error) {
-	bundleSignatures := make([]solana.Signature, 0, len(transactions))
+func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transaction, timeout uint64) (*proto.SendBundleResponse, error) {
+	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
 
-	for _, tx := range transactions {
-		bundleSignatures = append(bundleSignatures, tx.Signatures[0])
-	}
-
-	packets, err := assemblePackets(transactions)
+	resp, err := c.BroadcastBundle(transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.SearcherService.SendBundle(c.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}})
-	if err != nil {
-		return nil, err
-	}
-
-	subResult, err := c.SearcherService.SubscribeBundleResults(c.GrpcCtx, &proto.SubscribeBundleResultsRequest{})
+	subResult, err := c.SubscribeBundleResults()
 	if err != nil {
 		return nil, err
 	}
 
 	for {
 		select {
-		case <-c.GrpcCtx.Done():
-			return nil, c.GrpcCtx.Err()
+		case <-c.Auth.GrpcCtx.Done():
+			return nil, c.Auth.GrpcCtx.Err()
 		default:
 			var bundleResult *proto.BundleResult
 			bundleResult, err = subResult.Recv()
@@ -194,14 +206,21 @@ func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transact
 			case *proto.BundleResult_Rejected:
 				rejected := bundleResult.Result.(*proto.BundleResult_Rejected)
 				switch rejected.Rejected.Reason.(type) {
-				case *proto.Rejected_WinningBatchBidRejected:
-					return nil, ErrClientError
-				case *proto.Rejected_DroppedBundle:
-					return nil, ErrTransportError
 				case *proto.Rejected_SimulationFailure:
-					return nil, ErrSimulationFailure
+					rejection := rejected.Rejected.GetSimulationFailure()
+					return nil, NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
 				case *proto.Rejected_StateAuctionBidRejected:
-					return nil, ErrBundleRejection
+					rejection := rejected.Rejected.GetStateAuctionBidRejected()
+					return nil, NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+				case *proto.Rejected_WinningBatchBidRejected:
+					rejection := rejected.Rejected.GetWinningBatchBidRejected()
+					return nil, NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+				case *proto.Rejected_InternalError:
+					rejection := rejected.Rejected.GetInternalError()
+					return nil, NewInternalError(rejection.Msg)
+				case *proto.Rejected_DroppedBundle:
+					rejection := rejected.Rejected.GetDroppedBundle()
+					return nil, NewDroppedBundle(rejection.Msg)
 				}
 			}
 		}

@@ -1,20 +1,48 @@
-![image](https://media.discordapp.net/attachments/689063280358064158/1206006337226539008/image.png?ex=65da6fed&is=65c7faed&hm=02f9daef5065a40bb2718d1073684d4db431378b4bcaf5fd19ee677b84f3f832&=&format=webp&quality=lossless&width=1224&height=440)
+<p align="center">
+  <img src="https://media.discordapp.net/attachments/1180285583273246720/1206572835372269598/image.png?ex=65dc7f84&is=65ca0a84&hm=2793d93eb12ef7becff685b3d56d2e64d9ef61f892751412222a98b8d5fc135d&=&format=webp&quality=lossless&width=2204&height=1028" />
+</p>
 
 # Jito SDK library for Go
+[![GoDoc](https://pkg.go.dev/badge/github.com/weeaa/jito-go?status.svg)](https://pkg.go.dev/github.com/weeaa/jito-go?tab=doc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/weeaa/jito-go)](https://goreportcard.com/report/github.com/weeaa/jito-go)
 
 ## About
 This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)**.
 
 ## Contents
-- [About](#about)
 - [Features](#features)
 - [Installing](#installing)
+- [RPC Methods](#rpc-methods)
 - [Keypair Authentication](#keypair-authentication)
+- [Example](#example)
 - [Disclaimer](#disclaimer)
 
 ## Features
-- [x] Send Bundles
-- [x] Subscribe to MemPool
+- [x] Searcher
+- [x] Block Engine
+- [ ] Relayer
+- [ ] ShredStream
+- [ ] Geyser
+
+## RPC Methods
+- Searcher
+  - SubscribeMempool
+  - GetNextScheduledLeader
+  - GetRegions
+  - SendBundle
+  - GetConnectedLeaders
+  - GetConnectedLeadersRegioned
+  - SubscribeBundleResults
+  - GetTipAccounts
+- Block Engine
+  - Validator
+    - SubscribePackets
+    - SubscribeBundles
+    - GetBlockBuilderFeeInfo
+  - Relayer
+    - SubscribeAccountsOfInterest
+    - SubscribeProgramsOfInterest
+    - StartExpiringPacketStream
 
 ## Installing
 ```bash
@@ -31,33 +59,30 @@ To get access to the block engine, please generate a new solana keypair and subm
 package main
 
 import (
-	"context"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-	go_jito "github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
-	"github.com/weeaa/jito-go/searcher_client"
-	"log"
-	"os"
+    "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/rpc"
+    "github.com/weeaa/jito-go"
+    "github.com/weeaa/jito-go/searcher_client"
+    "log"
+    "os"
 )
 
 func main() {
-	client, err := searcher_client.NewSearcherClient(
-		go_jito.NewYork.BlockEngineURL,
-		rpc.TestNet_RPC,
-		solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = client.AuthenticateAndRefresh(context.Background(), proto.Role_SEARCHER); err != nil {
-		log.Fatal(err)
-	}
-	resp, err := client.SearcherService.GetRegions(client.GrpcCtx, &proto.GetRegionsRequest{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(resp)
+  client, err := searcher_client.NewSearcherClient(
+    jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpc.MainNetBeta_RPC),
+    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  resp, err := client.GetRegions()
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  log.Println(resp)
 }
 ```
 
