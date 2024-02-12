@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"os"
-	"sync"
 )
 
 type BundleRejectionError struct {
@@ -62,13 +61,6 @@ type Client struct {
 	SearcherService proto.SearcherServiceClient
 
 	Auth *pkg.AuthenticationService
-}
-
-type Authentication struct {
-	BearerToken string
-	ExpiresAt   int64 // seconds
-	ErrChan     chan error
-	mu          sync.Mutex
 }
 
 // NewSearcherClient is a function that creates a new instance of a SearcherClient.

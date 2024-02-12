@@ -51,10 +51,165 @@ go get github.com/weeaa/jito-go@latest
 
 ## Keypair Authentication
 
-To get access to the block engine, please generate a new solana keypair and submit the public key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
+To utilize the features of Jito Searcher, you are required to generate a new Solana KeyPair and submit the Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
+You can create a new KeyPair by following the instructions provided in the code snippet below.
+```go
+package main
 
-## Example
+import (
+	"encoding/json"
+	"github.com/gagliardetto/solana-go"
+	"github.com/weeaa/jito-go/pkg"
+	"log"
+	"os"
+)
 
+func main() {
+	wallet := solana.NewWallet()
+
+	keypair := pkg.Keypair{
+		PrivateKey: wallet.PrivateKey,
+		PublicKey:  wallet.PublicKey(),
+	}
+
+	data, err := json.Marshal(keypair)
+	if err != nil {
+		log.Fatalf("failed to encode keypair as JSON: %v", err)
+	}
+
+	if err = os.WriteFile("keypair.json", data, 0600); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Successfully generated and saved new keypair.")
+}
+```
+
+## Examples
+
+### Send Bundle
+```go
+package main
+
+import (
+  "context"
+  "github.com/gagliardetto/solana-go"
+  "github.com/gagliardetto/solana-go/programs/system"
+  "github.com/gagliardetto/solana-go/rpc"
+  "github.com/weeaa/jito-go"
+  "github.com/weeaa/jito-go/searcher_client"
+  "log"
+  "os"
+)
+
+func main() {
+  client, err := searcher_client.NewSearcherClient(
+    jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpc.MainNetBeta_RPC),
+    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  // max per bundle is 5 transactions
+  txns := make([]*solana.Transaction, 0, 5)
+
+  block, err := client.RpcConn.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  from := solana.MustPrivateKeyFromBase58("Tq5gFBU4QG6b6aUYAwi87CUx64iy5tZT1J6nuphN4FXov3UZahMYGSbxLGhb8a9UZ1VvxWB4NzDavSzTorqKCio")
+  to := solana.MustPublicKeyFromBase58("BLrQPbKruZgFkNhpdGGrJcZdt1HnfrBLojLYYgnrwNrz")
+
+  tx, err := solana.NewTransaction(
+    []solana.Instruction{
+      system.NewTransferInstruction(
+        10000,
+        from.PublicKey(),
+        to,
+      ).Build(),
+    },
+    block.Value.Blockhash,
+    solana.TransactionPayer(from.PublicKey()),
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  if _, err = tx.Sign(
+    func(key solana.PublicKey) *solana.PrivateKey {
+      if from.PublicKey().Equals(key) {
+        return &from
+      }
+      return nil
+    },
+  ); err != nil {
+    log.Fatal(err)
+  }
+
+  txns = append(txns, tx)
+
+  resp, err := client.BroadcastBundleWithConfirmation(txns, 100)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  log.Println(resp)
+}
+```
+
+### Subscribe to MemPool Transactions [Accounts]
+```go
+package main
+
+import (
+	"context"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/weeaa/jito-go"
+	"github.com/weeaa/jito-go/searcher_client"
+	"log"
+	"os"
+)
+
+func main() {
+	client, err := searcher_client.NewSearcherClient(
+		jito_go.NewYork.BlockEngineURL,
+		rpc.New(rpc.MainNetBeta_RPC),
+		solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	txSub := make(chan *solana.Transaction)
+	regions := []string{jito_go.NewYork.Region}
+	accounts := []string{
+		"GuHvDyajPfQpHrg2oCWmArYHrZn2ynxAkSxAPFn9ht1g",
+		"4EKP9SRfykwQxDvrPq7jUwdkkc93Wd4JGCbBgwapeJhs",
+		"Hn98nGFGfZwJPjd4bk3uAX5pYHJe5VqtrtMhU54LNNhe",
+		"MuUEAu5tFfEMhaFGoz66jYTFBUHZrwfn3KWimXLNft2",
+		"CSGeQFoSuN56QZqf9WLqEEkWhRFt6QksTjMDLm68PZKA",
+	}
+
+	if err = client.SubscribeMemPoolAccounts(
+		context.TODO(), 
+		accounts, 
+		regions, 
+		txSub,
+		); err != nil {
+		log.Fatal(err)
+	}
+
+	for tx := range txSub {
+		log.Println(tx)
+	}
+}
+```
+
+### Get Regions
 ```go
 package main
 
