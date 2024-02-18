@@ -30,7 +30,7 @@ func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.Priva
 		GrpcCtx:     context.TODO(),
 		AuthService: proto.NewAuthServiceClient(grpcConn),
 		KeyPair:     NewKeyPair(privateKey),
-		ErrChan:     make(chan error),
+		ErrChan:     make(chan error, 1),
 		mu:          sync.Mutex{},
 		logger:      zerolog.New(os.Stdout).With().Timestamp().Str("service", "auth").Logger(),
 	}
@@ -60,10 +60,14 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 	}
 
 	as.updateAuthorizationMetadata(respToken.AccessToken)
-	as.ErrChan = make(chan error, 1)
 
 	go func() {
-		defer close(as.ErrChan)
+		defer func() {
+			if r := recover(); r != nil {
+				go as.AuthenticateAndRefresh(role)
+				as.logger.Error().Msgf("recovered from panic %v", r)
+			}
+		}()
 		for {
 			select {
 			case <-as.GrpcCtx.Done():
@@ -87,6 +91,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 	return nil
 }
 
+// updateAuthorizationMetadata updates headers of the gRPC connection.
 func (as *AuthenticationService) updateAuthorizationMetadata(token *proto.Token) {
 	as.mu.Lock()
 	defer as.mu.Unlock()

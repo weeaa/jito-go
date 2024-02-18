@@ -107,6 +107,7 @@ func main() {
     jito_go.NewYork.BlockEngineURL,
     rpc.New(rpc.MainNetBeta_RPC),
     solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+	nil,
   )
   if err != nil {
     log.Fatal(err)
@@ -179,6 +180,7 @@ func main() {
 		jito_go.NewYork.BlockEngineURL,
 		rpc.New(rpc.MainNetBeta_RPC),
 		solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+		nil,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -194,7 +196,7 @@ func main() {
 		"CSGeQFoSuN56QZqf9WLqEEkWhRFt6QksTjMDLm68PZKA",
 	}
 
-	if err = client.SubscribeMemPoolAccounts(
+	if err = client.SubscribeAccountsMempoolTransactions(
 		context.TODO(), 
 		accounts, 
 		regions, 
@@ -227,6 +229,7 @@ func main() {
     jito_go.NewYork.BlockEngineURL,
     rpc.New(rpc.MainNetBeta_RPC),
     solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+	nil,
   )
   if err != nil {
     log.Fatal(err)

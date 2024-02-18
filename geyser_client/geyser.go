@@ -1,3 +1,0 @@
-package geyser_client
-
-//SIKEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE

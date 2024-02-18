@@ -1,6 +1,7 @@
 package blockengine_client
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -78,8 +79,60 @@ func (c *ValidatorBlockEngineClient) BlockEngineValidatorClientSubscribePackets(
 	return c.BlockEngineValidatorClient.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{})
 }
 
+func (c *ValidatorBlockEngineClient) HandlePacketSubscription(ctx context.Context, ch chan *proto.PacketBatch) (proto.BlockEngineValidator_SubscribePacketsClient, error) {
+	sub, err := c.BlockEngineValidatorClientSubscribePackets()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				c.logger.Error().Err(ctx.Err())
+				return
+			default:
+				var subInfo *proto.SubscribePacketsResponse
+				subInfo, err = sub.Recv()
+				if err != nil {
+					continue
+				}
+				ch <- subInfo.Batch
+			}
+		}
+	}()
+
+	return sub, err
+}
+
 func (c *ValidatorBlockEngineClient) BlockEngineValidatorClientSubscribeBundles() (proto.BlockEngineValidator_SubscribeBundlesClient, error) {
 	return c.BlockEngineValidatorClient.SubscribeBundles(c.Auth.GrpcCtx, &proto.SubscribeBundlesRequest{})
+}
+
+func (c *ValidatorBlockEngineClient) HandleBundleSubscription(ctx context.Context, ch chan []*proto.BundleUuid) (proto.BlockEngineValidator_SubscribeBundlesClient, error) {
+	sub, err := c.BlockEngineValidatorClientSubscribeBundles()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				c.logger.Error().Err(ctx.Err())
+				return
+			default:
+				var subInfo *proto.SubscribeBundlesResponse
+				subInfo, err = sub.Recv()
+				if err != nil {
+					continue
+				}
+				ch <- subInfo.Bundles
+			}
+		}
+	}()
+
+	return sub, nil
 }
 
 func (c *ValidatorBlockEngineClient) BlockEngineValidatorClientGetBlockBuilderFeeInfo() (*proto.BlockBuilderFeeInfoResponse, error) {

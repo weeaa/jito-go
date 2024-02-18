@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"math/rand"
 	"os"
 )
 
@@ -63,9 +65,15 @@ type Client struct {
 	Auth *pkg.AuthenticationService
 }
 
-// NewSearcherClient is a function that creates a new instance of a SearcherClient.
-func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*Client, error) {
-	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	conn, err := grpc.Dial(grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +93,8 @@ func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey sol
 	}, nil
 }
 
-// NewMemPoolStream creates a new MemPool subscription.
-func (c *Client) NewMemPoolStream(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
+// NewMempoolStream creates a new mempool subscription.
+func (c *Client) NewMempoolStream(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
 	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{Msg: &proto.MempoolSubscription_WlaV0Sub{
 		WlaV0Sub: &proto.WriteLockedAccountSubscriptionV0{
 			Accounts: accounts,
@@ -94,9 +102,9 @@ func (c *Client) NewMemPoolStream(accounts, regions []string) (proto.SearcherSer
 	}, Regions: regions})
 }
 
-// SubscribeMemPoolAccounts creates a new MemPool subscription and sends transactions to the provided channel.
-func (c *Client) SubscribeMemPoolAccounts(ctx context.Context, accounts, regions []string, ch chan *solana.Transaction) error {
-	sub, err := c.NewMemPoolStream(accounts, regions)
+// SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
+func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accounts, regions []string, ch chan *solana.Transaction) error {
+	sub, err := c.NewMempoolStream(accounts, regions)
 	if err != nil {
 		return err
 	}
@@ -133,45 +141,56 @@ func (c *Client) SubscribeMemPoolAccounts(ctx context.Context, accounts, regions
 	return nil
 }
 
-func (c *Client) GetRegions() (*proto.GetRegionsResponse, error) {
-	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &proto.GetRegionsRequest{})
+func (c *Client) GetRegions(opts ...grpc.CallOption) (*proto.GetRegionsResponse, error) {
+	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &proto.GetRegionsRequest{}, opts...)
 }
 
-func (c *Client) GetConnectedLeaders() (*proto.ConnectedLeadersResponse, error) {
-	return c.SearcherService.GetConnectedLeaders(c.Auth.GrpcCtx, &proto.ConnectedLeadersRequest{})
+func (c *Client) GetConnectedLeaders(opts ...grpc.CallOption) (*proto.ConnectedLeadersResponse, error) {
+	return c.SearcherService.GetConnectedLeaders(c.Auth.GrpcCtx, &proto.ConnectedLeadersRequest{}, opts...)
 }
 
-func (c *Client) GetConnectedLeadersRegioned(regions ...string) (*proto.ConnectedLeadersRegionedResponse, error) {
-	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &proto.ConnectedLeadersRegionedRequest{Regions: regions})
+func (c *Client) GetConnectedLeadersRegioned(regions []string, opts ...grpc.CallOption) (*proto.ConnectedLeadersRegionedResponse, error) {
+	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &proto.ConnectedLeadersRegionedRequest{Regions: regions}, opts...)
 }
 
-func (c *Client) GetTipAccounts() (*proto.GetTipAccountsResponse, error) {
-	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &proto.GetTipAccountsRequest{})
+func (c *Client) GetTipAccounts(opts ...grpc.CallOption) (*proto.GetTipAccountsResponse, error) {
+	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &proto.GetTipAccountsRequest{}, opts...)
 }
 
-func (c *Client) GetNextScheduledLeader(regions ...string) (*proto.NextScheduledLeaderResponse, error) {
-	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions})
+func (c *Client) GetRandomTipAccount(opts ...grpc.CallOption) (string, error) {
+	resp, err := c.GetTipAccounts(opts...)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Accounts[rand.Intn(len(resp.Accounts))], nil
 }
 
-func (c *Client) SubscribeBundleResults() (proto.SearcherService_SubscribeBundleResultsClient, error) {
-	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &proto.SubscribeBundleResultsRequest{})
+// GetNextScheduledLeader returns the next scheduled leader for the provided regions.
+func (c *Client) GetNextScheduledLeader(regions []string, opts ...grpc.CallOption) (*proto.NextScheduledLeaderResponse, error) {
+	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions}, opts...)
+}
+
+// SubscribeBundleResults subscribes to the results of a bundle.
+func (c *Client) SubscribeBundleResults(opts ...grpc.CallOption) (proto.SearcherService_SubscribeBundleResultsClient, error) {
+	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &proto.SubscribeBundleResultsRequest{}, opts...)
 }
 
 // BroadcastBundle is a function that sends a bundle of packets to the SearcherService.
-func (c *Client) BroadcastBundle(transactions []*solana.Transaction) (*proto.SendBundleResponse, error) {
+func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	packets, err := assemblePackets(transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}})
+	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}}, opts...)
 }
 
 // BroadcastBundleWithConfirmation is a function that sends a bundle of packets to the SearcherService and subscribes to the results.
-func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transaction, timeout uint64) (*proto.SendBundleResponse, error) {
+func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
 
-	resp, err := c.BroadcastBundle(transactions)
+	resp, err := c.BroadcastBundle(transactions, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +250,19 @@ func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transact
 
 		return resp, nil
 	}
+}
+
+func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
+	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()
+}
+
+func (c *Client) GenerateTipRandomAccountInstruction(tipAmount uint64, from solana.PublicKey) (solana.Instruction, error) {
+	tipAccount, err := c.GetRandomTipAccount()
+	if err != nil {
+		return nil, err
+	}
+
+	return system.NewTransferInstruction(tipAmount, from, solana.MustPublicKeyFromBase58(tipAccount)).Build(), nil
 }
 
 // assemblePackets is a function that converts a slice of transactions to a slice of protobuf packets.
