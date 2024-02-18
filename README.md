@@ -7,7 +7,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/weeaa/jito-go)](https://goreportcard.com/report/github.com/weeaa/jito-go)
 
 ## About
-This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)**.
+This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)**. ⚠️ Work in progress.
 
 ## Contents
 - [Features](#features)
@@ -22,7 +22,7 @@ This library contains tooling to interact with **[Jito Labs](https://www.jito.wt
 - [x] Block Engine
 - [ ] Relayer
 - [ ] ShredStream
-- [ ] Geyser
+- [x] Geyser
 
 ## RPC Methods
 - Searcher
