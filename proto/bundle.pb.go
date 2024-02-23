@@ -182,7 +182,7 @@ func (x *BundleUuid) GetUuid() string {
 }
 
 // Indicates the bundle was accepted and forwarded to a validator.
-// NOTE: A single bundle may have multiple events emitted if forwarded to many validators.
+// NOTE: A single bundle may have multiple events emitted if forwarded to many validator-watcher.
 type Accepted struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

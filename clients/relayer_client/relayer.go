@@ -21,8 +21,14 @@ type Client struct {
 }
 
 // NewRelayerClient is a function that creates a new instance of a Client.
-func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey) (*Client, error) {
-	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	conn, err := grpc.Dial(grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}

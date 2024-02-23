@@ -57,16 +57,17 @@ func NewDroppedBundle(message string) error {
 
 type Client struct {
 	GrpcConn *grpc.ClientConn
-	RpcConn  *rpc.Client
 	logger   zerolog.Logger
+	RpcConn  *rpc.Client
 
 	SearcherService proto.SearcherServiceClient
 
 	Auth *pkg.AuthenticationService
+
+	ErrChan chan error
 }
 
 func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
-
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -90,35 +91,66 @@ func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey sol
 		SearcherService: searcherService,
 		Auth:            authService,
 		logger:          zerolog.New(os.Stdout).With().Timestamp().Str("service", "searcher-client").Logger(),
+		ErrChan:         make(chan error),
 	}, nil
 }
 
-// NewMempoolStream creates a new mempool subscription.
-func (c *Client) NewMempoolStream(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
-	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{Msg: &proto.MempoolSubscription_WlaV0Sub{
-		WlaV0Sub: &proto.WriteLockedAccountSubscriptionV0{
-			Accounts: accounts,
+// NewMempoolStreamAccount creates a new mempool subscription on specific accounts.
+func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
+	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{
+		Msg: &proto.MempoolSubscription_WlaV0Sub{
+			WlaV0Sub: &proto.WriteLockedAccountSubscriptionV0{
+				Accounts: accounts,
+			},
 		},
-	}, Regions: regions})
+		Regions: regions,
+	})
+}
+
+func (c *Client) NewMempoolStreamProgram(programs, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
+	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{
+		Msg: &proto.MempoolSubscription_ProgramV0Sub{
+			ProgramV0Sub: &proto.ProgramSubscriptionV0{
+				Programs: programs,
+			},
+		},
+		Regions: regions,
+	})
+}
+
+type SubscribeAccountsMempoolTransactionsPayload struct {
+	Ctx      context.Context
+	Accounts []string
+	Regions  []string
+	TxCh     chan *solana.Transaction
+	ErrCh    chan error
 }
 
 // SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
-func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accounts, regions []string, ch chan *solana.Transaction) error {
-	sub, err := c.NewMempoolStream(accounts, regions)
+func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccountsMempoolTransactionsPayload) error {
+	sub, err := c.NewMempoolStreamAccount(payload.Accounts, payload.Regions)
 	if err != nil {
 		return err
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if err = c.SubscribeAccountsMempoolTransactions(payload); err != nil {
+					payload.ErrCh <- fmt.Errorf("SubscribeAccountsMempoolTransactions: recovered from panic but unable to restart sub stream: %w", err)
+					return
+				}
+			}
+		}()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-payload.Ctx.Done():
 				return
 			default:
 				var receipt *proto.PendingTxNotification
 				receipt, err = sub.Recv()
 				if err != nil {
-					c.logger.Error().Err(err).Msg("failed to receive mempool notification")
+					c.ErrChan <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to receive mempool notification: %w", err)
 					continue
 				}
 
@@ -127,11 +159,11 @@ func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accou
 						var tx *solana.Transaction
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
-							c.logger.Error().Err(err).Msg("failed to convert protobuf packet to transaction")
+							c.ErrChan <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
 							return
 						}
 
-						ch <- tx
+						payload.TxCh <- tx
 					}(transaction)
 				}
 			}
@@ -166,17 +198,14 @@ func (c *Client) GetRandomTipAccount(opts ...grpc.CallOption) (string, error) {
 	return resp.Accounts[rand.Intn(len(resp.Accounts))], nil
 }
 
-// GetNextScheduledLeader returns the next scheduled leader for the provided regions.
 func (c *Client) GetNextScheduledLeader(regions []string, opts ...grpc.CallOption) (*proto.NextScheduledLeaderResponse, error) {
 	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions}, opts...)
 }
 
-// SubscribeBundleResults subscribes to the results of a bundle.
 func (c *Client) SubscribeBundleResults(opts ...grpc.CallOption) (proto.SearcherService_SubscribeBundleResultsClient, error) {
 	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &proto.SubscribeBundleResultsRequest{}, opts...)
 }
 
-// BroadcastBundle is a function that sends a bundle of packets to the SearcherService.
 func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	packets, err := assemblePackets(transactions)
 	if err != nil {
@@ -187,7 +216,7 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 }
 
 // BroadcastBundleWithConfirmation is a function that sends a bundle of packets to the SearcherService and subscribes to the results.
-func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
+func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
 
 	resp, err := c.BroadcastBundle(transactions, opts...)
@@ -211,45 +240,98 @@ func (c *Client) BroadcastBundleWithConfirmation(transactions []*solana.Transact
 				continue
 			}
 
-			switch bundleResult.Result.(type) {
-			case *proto.BundleResult_Accepted:
-				break
-			case *proto.BundleResult_Rejected:
-				rejected := bundleResult.Result.(*proto.BundleResult_Rejected)
-				switch rejected.Rejected.Reason.(type) {
-				case *proto.Rejected_SimulationFailure:
-					rejection := rejected.Rejected.GetSimulationFailure()
-					return nil, NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
-				case *proto.Rejected_StateAuctionBidRejected:
-					rejection := rejected.Rejected.GetStateAuctionBidRejected()
-					return nil, NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-				case *proto.Rejected_WinningBatchBidRejected:
-					rejection := rejected.Rejected.GetWinningBatchBidRejected()
-					return nil, NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-				case *proto.Rejected_InternalError:
-					rejection := rejected.Rejected.GetInternalError()
-					return nil, NewInternalError(rejection.Msg)
-				case *proto.Rejected_DroppedBundle:
-					rejection := rejected.Rejected.GetDroppedBundle()
-					return nil, NewDroppedBundle(rejection.Msg)
+			if err = c.handleBundleResult(bundleResult); err != nil {
+				return nil, err
+			}
+
+			var statuses *rpc.GetSignatureStatusesResult
+			statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, status := range statuses.Value {
+				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed {
+					return nil, errors.New("searcher service did not provide bundle status in time")
 				}
 			}
-		}
 
-		var statuses *rpc.GetSignatureStatusesResult
-		statuses, err = c.RpcConn.GetSignatureStatuses(context.TODO(), false, bundleSignatures...)
-		if err != nil {
-			return nil, err
+			return resp, nil
 		}
-
-		for _, status := range statuses.Value {
-			if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed {
-				return nil, errors.New("searcher service did not provide bundle status in time")
-			}
-		}
-
-		return resp, nil
 	}
+}
+
+type SimulatedBundleResponseStruct struct {
+	Summary            interface{}                  `json:"summary"`
+	TransactionResults []SimulatedBundleTransaction `json:"transactionResults"`
+}
+
+type SimulatedBundleTransaction struct {
+	Err                   interface{}                        `json:"err"`
+	Logs                  []string                           `json:"logs,omitempty"`
+	PreExecutionAccounts  []*SimulatedTransactionAccountInfo `json:"preExecutionAccounts,omitempty"`
+	PostExecutionAccounts []*SimulatedTransactionAccountInfo `json:"postExecutionAccounts,omitempty"`
+	UnitsConsumed         int                                `json:"unitsConsumed,omitempty"`
+	ReturnData            *TransactionReturnData             `json:"returnData,omitempty"`
+}
+
+type SimulatedTransactionAccountInfo struct {
+	Executable bool     `json:"executable"`
+	Owner      string   `json:"owner"`
+	Lamports   int      `json:"lamports"`
+	Data       []string `json:"data"`
+	RentEpoch  *int     `json:"rentEpoch,omitempty"`
+}
+
+type TransactionReturnData struct {
+	ProgramID string   `json:"programId"`
+	Data      []string `json:"data"`
+}
+
+// SimulateBundle is an RPC method that simulates a bundle of transactions
+// – exclusively available to Jito-Solana validator-watcher.
+func (c *Client) SimulateBundle(ctx context.Context, bundle []solana.Signature) (any, error) {
+	var out any
+	err := c.RpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundle})
+	return out, err
+}
+
+func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bundle, error) {
+	packets, err := assemblePackets(transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.Bundle{Packets: packets, Header: nil}, nil
+}
+
+func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
+	switch bundleResult.Result.(type) {
+	case *proto.BundleResult_Accepted:
+		break
+	case *proto.BundleResult_Rejected:
+		rejected := bundleResult.Result.(*proto.BundleResult_Rejected)
+		switch rejected.Rejected.Reason.(type) {
+		case *proto.Rejected_SimulationFailure:
+			rejection := rejected.Rejected.GetSimulationFailure()
+			return NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
+		case *proto.Rejected_StateAuctionBidRejected:
+			rejection := rejected.Rejected.GetStateAuctionBidRejected()
+			return NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+		case *proto.Rejected_WinningBatchBidRejected:
+			rejection := rejected.Rejected.GetWinningBatchBidRejected()
+			return NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+		case *proto.Rejected_InternalError:
+			rejection := rejected.Rejected.GetInternalError()
+			return NewInternalError(rejection.Msg)
+		case *proto.Rejected_DroppedBundle:
+			rejection := rejected.Rejected.GetDroppedBundle()
+			return NewDroppedBundle(rejection.Msg)
+		default:
+			return nil
+		}
+	}
+	return nil
 }
 
 func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {

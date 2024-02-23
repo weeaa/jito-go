@@ -27,7 +27,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RelayerClient interface {
-	// The relayer has TPU and TPU forward sockets that validators can leverage.
+	// The relayer has TPU and TPU forward sockets that validator-watcher can leverage.
 	// A validator can fetch this config and change its TPU and TPU forward port in gossip.
 	GetTpuConfigs(ctx context.Context, in *GetTpuConfigsRequest, opts ...grpc.CallOption) (*GetTpuConfigsResponse, error)
 	// Validators can subscribe to packets from the relayer and receive a multiplexed signal that contains a mixture
@@ -88,7 +88,7 @@ func (x *relayerSubscribePacketsClient) Recv() (*SubscribePacketsResponse, error
 // All implementations must embed UnimplementedRelayerServer
 // for forward compatibility
 type RelayerServer interface {
-	// The relayer has TPU and TPU forward sockets that validators can leverage.
+	// The relayer has TPU and TPU forward sockets that validator-watcher can leverage.
 	// A validator can fetch this config and change its TPU and TPU forward port in gossip.
 	GetTpuConfigs(context.Context, *GetTpuConfigsRequest) (*GetTpuConfigsResponse, error)
 	// Validators can subscribe to packets from the relayer and receive a multiplexed signal that contains a mixture

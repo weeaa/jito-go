@@ -26,7 +26,6 @@ type Client struct {
 }
 
 func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
-
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -101,7 +100,7 @@ func (c *Client) SubscribeAccountUpdates(accounts []string) (proto.Geyser_Subscr
 	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)})
 }
 
-func (c *Client) HandleAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient) {
+func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient) {
 	go func() {
 		for {
 			select {
@@ -123,7 +122,7 @@ func (c *Client) SubscribeProgramUpdates(programs []string) (proto.Geyser_Subscr
 	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)})
 }
 
-func (c *Client) HandleProgramUpdates(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient) {
+func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient) {
 	go func() {
 		for {
 			select {
