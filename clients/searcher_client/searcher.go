@@ -13,6 +13,7 @@ import (
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"math/big"
 	"math/rand"
 	"os"
 )
@@ -261,21 +262,48 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 	}
 }
 
-type SimulatedBundleResponseStruct struct {
-	Summary            interface{}                  `json:"summary"`
-	TransactionResults []SimulatedBundleTransaction `json:"transactionResults"`
-}
-
-type SimulatedBundleTransaction struct {
-	Err                   interface{}                        `json:"err"`
-	Logs                  []string                           `json:"logs,omitempty"`
-	PreExecutionAccounts  []*SimulatedTransactionAccountInfo `json:"preExecutionAccounts,omitempty"`
-	PostExecutionAccounts []*SimulatedTransactionAccountInfo `json:"postExecutionAccounts,omitempty"`
-	UnitsConsumed         int                                `json:"unitsConsumed,omitempty"`
-	ReturnData            *TransactionReturnData             `json:"returnData,omitempty"`
-}
-
 type SimulatedTransactionAccountInfo struct {
+	Executable bool     `json:"executable"`
+	Owner      string   `json:"owner"`
+	Lamports   int      `json:"lamports"`
+	Data       []string `json:"data"`
+	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
+}
+
+type SimulateBundleConfig struct {
+	PreExecutionAccountsConfigs  []ExecutionAccounts `json:"preExecutionAccountsConfigs"`
+	PostExecutionAccountsConfigs []ExecutionAccounts `json:"postExecutionAccountsConfigs"`
+}
+
+type ExecutionAccounts struct {
+	Encoding  string   `json:"encoding"`
+	Addresses []string `json:"addresses"`
+}
+
+type SimulateBundleParams struct {
+	EncodedTransactions []string `json:"encodedTransactions"` // base64 encoded transactions (obtained through tx.ToBase64())
+}
+
+type SimulatedBundleResponseStruct struct {
+	Summary           interface{}         `json:"summary"`
+	TransactionResult []TransactionResult `json:"transactionResults"`
+}
+
+type SimulatedBundleResponse struct {
+	Context interface{}       `json:"context"`
+	Value   TransactionResult `json:"value"`
+}
+
+type TransactionResult struct {
+	Err                   interface{} `json:"err,omitempty"`
+	Logs                  []string    `json:"logs,omitempty"`
+	PreExecutionAccounts  []Account   `json:"preExecutionAccounts,omitempty"`
+	PostExecutionAccounts []Account   `json:"postExecutionAccounts,omitempty"`
+	UnitsConsumed         *int        `json:"unitsConsumed,omitempty"`
+	ReturnData            *ReturnData `json:"returnData,omitempty"`
+}
+
+type Account struct {
 	Executable bool     `json:"executable"`
 	Owner      string   `json:"owner"`
 	Lamports   int      `json:"lamports"`
@@ -283,16 +311,53 @@ type SimulatedTransactionAccountInfo struct {
 	RentEpoch  *int     `json:"rentEpoch,omitempty"`
 }
 
-type TransactionReturnData struct {
-	ProgramID string   `json:"programId"`
-	Data      []string `json:"data"`
+type ReturnData struct {
+	ProgramId string    `json:"programId"`
+	Data      [2]string `json:"data"` // Assuming tuple is [2]string
 }
 
-// SimulateBundle is an RPC method that simulates a bundle of transactions
-// – exclusively available to Jito-Solana validator-watcher.
-func (c *Client) SimulateBundle(ctx context.Context, bundle []solana.Signature) (any, error) {
-	var out any
-	err := c.RpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundle})
+type VSimulatedBundleResponseStruct struct {
+	Summary struct {
+		Failed struct {
+			Error       interface{} `json:"error"`
+			TxSignature string      `json:"tx_signature"`
+		} `json:"failed"`
+	} `json:"summary"`
+	TransactionResults []struct {
+		Err                  interface{} `json:"err"`
+		Logs                 []string    `json:"logs,omitempty"`
+		PreExecutionAccounts *[]struct {
+			Executable bool     `json:"executable"`
+			Owner      string   `json:"owner"`
+			Lamports   int      `json:"lamports"`
+			Data       []string `json:"data"`
+			RentEpoch  *int     `json:"rentEpoch,omitempty"`
+		} `json:"preExecutionAccounts,omitempty"`
+		PostExecutionAccounts *[]struct {
+			Executable bool     `json:"executable"`
+			Owner      string   `json:"owner"`
+			Lamports   int      `json:"lamports"`
+			Data       []string `json:"data"`
+			RentEpoch  *int     `json:"rentEpoch,omitempty"`
+		} `json:"postExecutionAccounts,omitempty"`
+		UnitsConsumed *int `json:"unitsConsumed,omitempty"`
+		ReturnData    *struct {
+			ProgramId string         `json:"programId"`
+			Data      [2]interface{} `json:"data"` // Assuming it's a tuple with the first element being a string and the second element being a literal string "base64"
+		} `json:"returnData,omitempty"`
+	} `json:"transactionResults"`
+}
+
+// SimulateBundle is an RPC method that simulates a bundle
+// – exclusively available to Jito-Solana validator.
+func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
+	out := new(SimulatedBundleResponse)
+
+	if len(bundleParams.EncodedTransactions) != len(simulationConfigs.PreExecutionAccountsConfigs) {
+		return nil, errors.New("pre/post execution account config length must match bundle length")
+	}
+
+	err := c.RpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
 	return out, err
 }
 
