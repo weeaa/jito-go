@@ -262,14 +262,6 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 	}
 }
 
-type SimulatedTransactionAccountInfo struct {
-	Executable bool     `json:"executable"`
-	Owner      string   `json:"owner"`
-	Lamports   int      `json:"lamports"`
-	Data       []string `json:"data"`
-	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
-}
-
 type SimulateBundleConfig struct {
 	PreExecutionAccountsConfigs  []ExecutionAccounts `json:"preExecutionAccountsConfigs"`
 	PostExecutionAccountsConfigs []ExecutionAccounts `json:"postExecutionAccountsConfigs"`
@@ -284,14 +276,16 @@ type SimulateBundleParams struct {
 	EncodedTransactions []string `json:"encodedTransactions"` // base64 encoded transactions (obtained through tx.ToBase64())
 }
 
+/**/
+
+type SimulatedBundleResponse struct {
+	Context interface{}                   `json:"context"`
+	Value   SimulatedBundleResponseStruct `json:"value"`
+}
+
 type SimulatedBundleResponseStruct struct {
 	Summary           interface{}         `json:"summary"`
 	TransactionResult []TransactionResult `json:"transactionResults"`
-}
-
-type SimulatedBundleResponse struct {
-	Context interface{}       `json:"context"`
-	Value   TransactionResult `json:"value"`
 }
 
 type TransactionResult struct {
@@ -308,44 +302,12 @@ type Account struct {
 	Owner      string   `json:"owner"`
 	Lamports   int      `json:"lamports"`
 	Data       []string `json:"data"`
-	RentEpoch  *int     `json:"rentEpoch,omitempty"`
+	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
 }
 
 type ReturnData struct {
 	ProgramId string    `json:"programId"`
 	Data      [2]string `json:"data"` // Assuming tuple is [2]string
-}
-
-type VSimulatedBundleResponseStruct struct {
-	Summary struct {
-		Failed struct {
-			Error       interface{} `json:"error"`
-			TxSignature string      `json:"tx_signature"`
-		} `json:"failed"`
-	} `json:"summary"`
-	TransactionResults []struct {
-		Err                  interface{} `json:"err"`
-		Logs                 []string    `json:"logs,omitempty"`
-		PreExecutionAccounts *[]struct {
-			Executable bool     `json:"executable"`
-			Owner      string   `json:"owner"`
-			Lamports   int      `json:"lamports"`
-			Data       []string `json:"data"`
-			RentEpoch  *int     `json:"rentEpoch,omitempty"`
-		} `json:"preExecutionAccounts,omitempty"`
-		PostExecutionAccounts *[]struct {
-			Executable bool     `json:"executable"`
-			Owner      string   `json:"owner"`
-			Lamports   int      `json:"lamports"`
-			Data       []string `json:"data"`
-			RentEpoch  *int     `json:"rentEpoch,omitempty"`
-		} `json:"postExecutionAccounts,omitempty"`
-		UnitsConsumed *int `json:"unitsConsumed,omitempty"`
-		ReturnData    *struct {
-			ProgramId string         `json:"programId"`
-			Data      [2]interface{} `json:"data"` // Assuming it's a tuple with the first element being a string and the second element being a literal string "base64"
-		} `json:"returnData,omitempty"`
-	} `json:"transactionResults"`
 }
 
 // SimulateBundle is an RPC method that simulates a bundle

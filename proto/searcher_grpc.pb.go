@@ -41,9 +41,9 @@ type SearcherServiceClient interface {
 	SendBundle(ctx context.Context, in *SendBundleRequest, opts ...grpc.CallOption) (*SendBundleResponse, error)
 	// Returns the next scheduled leader connected to the block engine.
 	GetNextScheduledLeader(ctx context.Context, in *NextScheduledLeaderRequest, opts ...grpc.CallOption) (*NextScheduledLeaderResponse, error)
-	// Returns leader slots for connected jito validator-watcher during the current epoch. Only returns data for this region.
+	// Returns leader slots for connected jito validator during the current epoch. Only returns data for this region.
 	GetConnectedLeaders(ctx context.Context, in *ConnectedLeadersRequest, opts ...grpc.CallOption) (*ConnectedLeadersResponse, error)
-	// Returns leader slots for connected jito validator-watcher during the current epoch.
+	// Returns leader slots for connected jito validator during the current epoch.
 	GetConnectedLeadersRegioned(ctx context.Context, in *ConnectedLeadersRegionedRequest, opts ...grpc.CallOption) (*ConnectedLeadersRegionedResponse, error)
 	// Returns the tip accounts searchers shall transfer funds to for the leader to claim.
 	GetTipAccounts(ctx context.Context, in *GetTipAccountsRequest, opts ...grpc.CallOption) (*GetTipAccountsResponse, error)

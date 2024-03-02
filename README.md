@@ -1,57 +1,70 @@
+# Jito Go SDK
+[![GoDoc](https://pkg.go.dev/badge/github.com/weeaa/jito-go?status.svg)](https://pkg.go.dev/github.com/weeaa/jito-go?tab=doc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/weeaa/jito-go)](https://goreportcard.com/report/github.com/weeaa/jito-go)
+[![License](https://img.shields.io/badge/license-Apache_2.0-crimson)](https://opensource.org/license/apache-2-0)
+
+This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)** MEV software. ⚠️ Work in progress. ⚠️
+
 <p align="center">
   <img src="https://media.discordapp.net/attachments/1180285583273246720/1206572835372269598/image.png?ex=65dc7f84&is=65ca0a84&hm=2793d93eb12ef7becff685b3d56d2e64d9ef61f892751412222a98b8d5fc135d&=&format=webp&quality=lossless&width=2204&height=1028" />
 </p>
 
-# Jito SDK library for Go
-[![GoDoc](https://pkg.go.dev/badge/github.com/weeaa/jito-go?status.svg)](https://pkg.go.dev/github.com/weeaa/jito-go?tab=doc)
-[![Go Report Card](https://goreportcard.com/badge/github.com/weeaa/jito-go)](https://goreportcard.com/report/github.com/weeaa/jito-go)
-
-## About
-This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)**. ⚠️ Work in progress.
-
-## Contents
+## ❇️ Contents
 - [Features](#features)
 - [Installing](#installing)
 - [RPC Methods](#rpc-methods)
 - [Keypair Authentication](#keypair-authentication)
-- [Example](#example)
+- [Examples](#examples)
 - [Disclaimer](#disclaimer)
+- [License](#-license)
 
-## Features
+## ✨ Features
 - [x] Searcher
 - [x] Block Engine
-- [ ] Relayer
-- [ ] ShredStream
+- [x] Relayer
+- [ ] ShredStream (WIP, help welcome 😊)
 - [x] Geyser
 
-## RPC Methods
-- Searcher
-  - SubscribeMempool
-  - GetNextScheduledLeader
-  - GetRegions
-  - SendBundle
-  - GetConnectedLeaders
-  - GetConnectedLeadersRegioned
-  - SubscribeBundleResults
-  - GetTipAccounts
-- Block Engine
+## 📡 RPC Methods
+- [x] **Searcher**
+  - `SubscribeMempoolAccounts`
+  - `SubscribeMempoolPrograms`
+  - `GetNextScheduledLeader`
+  - `GetRegions`
+  - `GetConnectedLeaders`
+  - `GetConnectedLeadersRegioned`
+  - `GetTipAccounts`
+  - `SimulateBundle`
+  - `SendBundle`
+  - `SendBundleWithConfirmation`
+  - `SubscribeBundleResults`
+- [x] **Block Engine**
   - Validator
-    - SubscribePackets
-    - SubscribeBundles
-    - GetBlockBuilderFeeInfo
+    - `SubscribePackets`
+    - `SubscribeBundles`
+    - `GetBlockBuilderFeeInfo`
   - Relayer
-    - SubscribeAccountsOfInterest
-    - SubscribeProgramsOfInterest
-    - StartExpiringPacketStream
+    - `SubscribeAccountsOfInterest`
+    - `SubscribeProgramsOfInterest`
+    - `StartExpiringPacketStream`
+- [x] **Geyser**
+  - `SubscribePartialAccountUpdates`
+  - `SubscribeBlockUpdates`
+  - `SubscribeAccountUpdates`
+  - `SubscribeProgramUpdates`
+  - `SubscribeTransactionUpdates`
+  - `SubscribeSlotUpdates`
+- [ ] **ShredStream**
 
-## Installing
-```bash
+## 💾 Installing
+
+```shell
 go get github.com/weeaa/jito-go@latest
 ```
 
-## Keypair Authentication
+## 🔑 Keypair Authentication
 
-To utilize the features of Jito Searcher, you are required to generate a new Solana KeyPair and submit the Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
+To utilize the features of Jito MEV, you are required to generate a new Solana KeyPair and submit the Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
 You can create a new KeyPair by following the instructions provided in the code snippet below.
 ```go
 package main
@@ -85,9 +98,9 @@ func main() {
 }
 ```
 
-## Examples
+## 💻 Examples
 
-### Send Bundle
+### `Send Bundle`
 ```go
 package main
 
@@ -97,7 +110,7 @@ import (
   "github.com/gagliardetto/solana-go/programs/system"
   "github.com/gagliardetto/solana-go/rpc"
   "github.com/weeaa/jito-go"
-  "github.com/weeaa/jito-go/searcher_client"
+  "github.com/weeaa/jito-go/clients/searcher_client"
   "log"
   "os"
 )
@@ -160,58 +173,60 @@ func main() {
   log.Println(resp)
 }
 ```
-
-### Subscribe to MemPool Transactions [Accounts]
+### `Subscribe to MemPool Transactions [Accounts]`
 ```go
 package main
 
 import (
 	"context"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/searcher_client"
-	"log"
-	"os"
+    "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/rpc"
+    "github.com/weeaa/jito-go"
+    "github.com/weeaa/jito-go/clients/searcher_client"
+    "log"
+    "os"
 )
 
 func main() {
-	client, err := searcher_client.NewSearcherClient(
-		jito_go.NewYork.BlockEngineURL,
-		rpc.New(rpc.MainNetBeta_RPC),
-		solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
-		nil,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
+  client, err := searcher_client.NewSearcherClient(
+    jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpc.MainNetBeta_RPC),
+    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+    nil,
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
 
-	txSub := make(chan *solana.Transaction)
-	regions := []string{jito_go.NewYork.Region}
-	accounts := []string{
-		"GuHvDyajPfQpHrg2oCWmArYHrZn2ynxAkSxAPFn9ht1g",
-		"4EKP9SRfykwQxDvrPq7jUwdkkc93Wd4JGCbBgwapeJhs",
-		"Hn98nGFGfZwJPjd4bk3uAX5pYHJe5VqtrtMhU54LNNhe",
-		"MuUEAu5tFfEMhaFGoz66jYTFBUHZrwfn3KWimXLNft2",
-		"CSGeQFoSuN56QZqf9WLqEEkWhRFt6QksTjMDLm68PZKA",
-	}
+  txSub := make(chan *solana.Transaction)
+  regions := []string{jito_go.NewYork.Region}
+  accounts := []string{
+    "GuHvDyajPfQpHrg2oCWmArYHrZn2ynxAkSxAPFn9ht1g",
+    "4EKP9SRfykwQxDvrPq7jUwdkkc93Wd4JGCbBgwapeJhs",
+    "Hn98nGFGfZwJPjd4bk3uAX5pYHJe5VqtrtMhU54LNNhe",
+    "MuUEAu5tFfEMhaFGoz66jYTFBUHZrwfn3KWimXLNft2",
+    "CSGeQFoSuN56QZqf9WLqEEkWhRFt6QksTjMDLm68PZKA",
+  }
 
-	if err = client.SubscribeAccountsMempoolTransactions(
-		context.TODO(), 
-		accounts, 
-		regions, 
-		txSub,
-		); err != nil {
-		log.Fatal(err)
-	}
+  payload := &searcher_client.SubscribeAccountsMempoolTransactionsPayload{
+    Ctx:      context.TODO(),
+    Accounts: accounts,
+    Regions:  regions,
+    TxCh:     make(chan *solana.Transaction),
+    ErrCh:    make(chan error),
+  }
+  
+  if err = client.SubscribeAccountsMempoolTransactions(payload); err != nil {
+    log.Fatal(err)
+  }
 
-	for tx := range txSub {
-		log.Println(tx)
-	}
+  for tx := range txSub {
+    log.Println(tx)
+  }
 }
 ```
 
-### Get Regions
+### `Get Regions`
 ```go
 package main
 
@@ -219,7 +234,7 @@ import (
     "github.com/gagliardetto/solana-go"
     "github.com/gagliardetto/solana-go/rpc"
     "github.com/weeaa/jito-go"
-    "github.com/weeaa/jito-go/searcher_client"
+    "github.com/weeaa/jito-go/clients/searcher_client"
     "log"
     "os"
 )
@@ -244,6 +259,10 @@ func main() {
 }
 ```
 
-## Disclaimer
+## 🚨 Disclaimer
 
-This library is not affiliated with Jito Labs. It is a community project and is not officially supported by Jito Labs. Use at your own risk.
+**This library is not affiliated with Jito Labs**. It is a community project and is not officially supported by Jito Labs. Use at your own risk.
+
+## 📃 License
+
+[Apache-2.0 License](https://github.com/weeaa/jito-go/blob/main/LICENSE).
