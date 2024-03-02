@@ -5,9 +5,8 @@
 
 This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)** MEV software. ⚠️ Work in progress. ⚠️
 
-<p align="center">
-  <img src="https://media.discordapp.net/attachments/1180285583273246720/1206572835372269598/image.png?ex=65dc7f84&is=65ca0a84&hm=2793d93eb12ef7becff685b3d56d2e64d9ef61f892751412222a98b8d5fc135d&=&format=webp&quality=lossless&width=2204&height=1028" />
-</p>
+![jitolabs](https://github.com/weeaa/jito-go/assets/108926252/5751416c-333b-412e-8f3f-f26b2839be98)
+
 
 ## ❇️ Contents
 - [Features](#features)
