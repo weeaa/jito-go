@@ -9,12 +9,12 @@ This library contains tooling to interact with **[Jito Labs](https://www.jito.wt
 
 
 ## ❇️ Contents
-- [Features](#features)
-- [Installing](#installing)
-- [RPC Methods](#rpc-methods)
-- [Keypair Authentication](#keypair-authentication)
-- [Examples](#examples)
-- [Disclaimer](#disclaimer)
+- [Features](#-features)
+- [Installing](#-installing)
+- [RPC Methods](#-rpc-methods)
+- [Keypair Authentication](#-keypair-authentication)
+- [Examples](#-examples)
+- [Disclaimer](#-disclaimer)
 - [License](#-license)
 
 ## ✨ Features
