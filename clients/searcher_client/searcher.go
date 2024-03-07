@@ -127,6 +127,14 @@ type SubscribeAccountsMempoolTransactionsPayload struct {
 	ErrCh    chan error
 }
 
+type SubscribeProgramsMempoolTransactionsPayload struct {
+	Ctx      context.Context
+	Accounts []string
+	Regions  []string
+	TxCh     chan *solana.Transaction
+	ErrCh    chan error
+}
+
 // SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
 func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccountsMempoolTransactionsPayload) error {
 	sub, err := c.NewMempoolStreamAccount(payload.Accounts, payload.Regions)
@@ -161,6 +169,52 @@ func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccounts
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
 							c.ErrChan <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
+							return
+						}
+
+						payload.TxCh <- tx
+					}(transaction)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+// SubscribeProgramsMempoolTransactions subscribes to the mempool transactions of the provided programs.
+func (c *Client) SubscribeProgramsMempoolTransactions(payload *SubscribeProgramsMempoolTransactionsPayload) error {
+	sub, err := c.NewMempoolStreamProgram(payload.Accounts, payload.Regions)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if err = c.SubscribeProgramsMempoolTransactions(payload); err != nil {
+					payload.ErrCh <- fmt.Errorf("SubscribeProgramsMempoolTransactions: recovered from panic but unable to restart sub stream: %w", err)
+					return
+				}
+			}
+		}()
+		for {
+			select {
+			case <-payload.Ctx.Done():
+				return
+			default:
+				var receipt *proto.PendingTxNotification
+				receipt, err = sub.Recv()
+				if err != nil {
+					c.ErrChan <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to receive mempool notification: %w", err)
+					continue
+				}
+
+				for _, transaction := range receipt.Transactions {
+					go func(transaction *proto.Packet) {
+						var tx *solana.Transaction
+						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
+						if err != nil {
+							c.ErrChan <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
 							return
 						}
 
