@@ -12,4 +12,5 @@ else
 fi
 
 echo "PRIVATE_KEY=" >> "$ENV_FILE"
-echo "JITO_RPC" >> "$ENV_FILE"
+echo "JITO_RPC=" >> "$ENV_FILE"
+echo "PRIVATE_KEY_WITH_FUNDS=" >> "$ENV_FILE"

@@ -14,6 +14,7 @@ if exist "%ENV_FILE%" (
 
 :: Append the PRIVATE_KEY variable to the .env file
 echo PRIVATE_KEY= >> "%ENV_FILE%"
-echo JITO_ROC >> "%ENV_FILE%"
+echo JITO_ROC= >> "%ENV_FILE%"
+echo PRIVATE_KEY_WITH_FUNDS= "%ENV_FILE%
 
 endlocal
