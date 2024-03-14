@@ -9,6 +9,12 @@ type Keypair struct {
 	PrivateKey solana.PrivateKey
 }
 
-func NewKeyPair(privateKey solana.PrivateKey) *Keypair {
-	return &Keypair{PrivateKey: privateKey, PublicKey: privateKey.PublicKey()}
-}
+type Platform string
+
+var (
+	SolanaFM       Platform = "https://solana.fm/tx/"
+	Solscan        Platform = "https://solscan.io/tx/"
+	SolanaExplorer Platform = "https://explorer.solana.com/tx/"
+	SolanaBeach    Platform = "https://solanabeach.io/transaction/"
+	XRAY           Platform = "https://xray.helius.xyz/tx/"
+)

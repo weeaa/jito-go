@@ -6,11 +6,6 @@ import (
 	"github.com/weeaa/jito-go/proto"
 )
 
-type Socket struct {
-	IP   string
-	Port int
-}
-
 // ConvertTransactionToProtobufPacket converts a solana-go Transaction to a proto.Packet.
 func ConvertTransactionToProtobufPacket(transaction *solana.Transaction) (proto.Packet, error) {
 	data, err := transaction.MarshalBinary()

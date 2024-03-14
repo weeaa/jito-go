@@ -64,8 +64,10 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				go as.AuthenticateAndRefresh(role)
 				as.logger.Error().Msgf("recovered from panic %v", r)
+				if err = as.AuthenticateAndRefresh(role); err != nil {
+					as.logger.Warn().Msgf("unable to re-authenticate after panic, stopping...")
+				}
 			}
 		}()
 		for {

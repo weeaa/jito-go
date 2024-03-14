@@ -20,7 +20,8 @@ type RelayerBlockEngineClient struct {
 
 	BlockEngineRelayerClient proto.BlockEngineRelayerClient
 
-	Auth *pkg.AuthenticationService
+	Auth  *pkg.AuthenticationService
+	ErrCh chan error
 }
 
 type ValidatorBlockEngineClient struct {
@@ -30,7 +31,8 @@ type ValidatorBlockEngineClient struct {
 
 	BlockEngineValidatorClient proto.BlockEngineValidatorClient
 
-	Auth *pkg.AuthenticationService
+	Auth  *pkg.AuthenticationService
+	ErrCh chan error
 }
 
 func NewRelayerBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*RelayerBlockEngineClient, error) {

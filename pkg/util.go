@@ -5,16 +5,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 )
 
-type Platform string
-
-var (
-	SolanaFM       Platform = "https://solana.fm/tx/"
-	Solscan        Platform = "https://solscan.io/tx/"
-	SolanaExplorer Platform = "https://explorer.solana.com/tx/"
-	SolanaBeach    Platform = "https://solanabeach.io/transaction/"
-	XRAY           Platform = "https://xray.helius.xyz/tx/"
-)
-
+// ExtractSigFromTx extracts the transaction's signature.
 func ExtractSigFromTx(tx *solana.Transaction) solana.Signature {
 	return tx.Signatures[0]
 }
@@ -33,4 +24,9 @@ func BuildTransactionLinks(txns []solana.Signature, platform Platform) []string 
 		txs = append(txs, fmt.Sprintf("%s%s", platform, tx.String()))
 	}
 	return txs
+}
+
+// NewKeyPair creates a new Solana Wallet.
+func NewKeyPair(privateKey solana.PrivateKey) *Keypair {
+	return &Keypair{PrivateKey: privateKey, PublicKey: privateKey.PublicKey()}
 }
