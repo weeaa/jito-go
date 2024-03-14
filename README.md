@@ -5,13 +5,16 @@
 
 This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)** MEV software. ⚠️ Work in progress. ⚠️
 
-![jitolabs](https://github.com/weeaa/jito-go/assets/108926252/5751416c-333b-412e-8f3f-f26b2839be98)
+PRs and contributions are welcome.
 
+![jitolabs](https://github.com/weeaa/jito-go/assets/108926252/5751416c-333b-412e-8f3f-f26b2839be98)
 
 ## ❇️ Contents
 - [Features](#-features)
 - [Installing](#-installing)
 - [RPC Methods](#-rpc-methods)
+- [Installing](#-installing)
+- [Env](#-env)
 - [Keypair Authentication](#-keypair-authentication)
 - [Examples](#-examples)
 - [Disclaimer](#-disclaimer)
@@ -25,9 +28,10 @@ This library contains tooling to interact with **[Jito Labs](https://www.jito.wt
 - [x] Geyser
 
 ## 📡 RPC Methods
+`🤡* methods which are disabled by Jito due to malicious use`
 - [x] **Searcher**
-  - `SubscribeMempoolAccounts`
-  - `SubscribeMempoolPrograms`
+  - `SubscribeMempoolAccounts` 🤡
+  - `SubscribeMempoolPrograms` 🤡
   - `GetNextScheduledLeader`
   - `GetRegions`
   - `GetConnectedLeaders`
@@ -61,41 +65,12 @@ This library contains tooling to interact with **[Jito Labs](https://www.jito.wt
 go get github.com/weeaa/jito-go@latest
 ```
 
+## 🌐 Env
+Execute the script files located in the `/scripts` directory according to your operating system.
+
 ## 🔑 Keypair Authentication
-
-To utilize the features of Jito MEV, you are required to generate a new Solana KeyPair and submit the Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
-You can create a new KeyPair by following the instructions provided in the code snippet below.
-```go
-package main
-
-import (
-	"encoding/json"
-	"github.com/gagliardetto/solana-go"
-	"github.com/weeaa/jito-go/pkg"
-	"log"
-	"os"
-)
-
-func main() {
-	wallet := solana.NewWallet()
-
-	keypair := pkg.Keypair{
-		PrivateKey: wallet.PrivateKey,
-		PublicKey:  wallet.PublicKey(),
-	}
-
-	data, err := json.Marshal(keypair)
-	if err != nil {
-		log.Fatalf("failed to encode keypair as JSON: %v", err)
-	}
-
-	if err = os.WriteFile("keypair.json", data, 0600); err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("Successfully generated and saved new keypair.")
-}
-```
+To access Jito MEV functionalities, you'll need a whitelisted Public Key obtained from a fresh KeyPair; submit your Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
+In order to generate a new KeyPair, you can use the following function `NewKeyPair()` from the `/pkg` package.
 
 ## 💻 Examples
 
