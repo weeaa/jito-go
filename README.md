@@ -14,7 +14,6 @@ PRs and contributions are welcome.
 - [Installing](#-installing)
 - [RPC Methods](#-rpc-methods)
 - [Installing](#-installing)
-- [Env](#-env)
 - [Keypair Authentication](#-keypair-authentication)
 - [Examples](#-examples)
 - [Disclaimer](#-disclaimer)
@@ -65,8 +64,10 @@ PRs and contributions are welcome.
 go get github.com/weeaa/jito-go@latest
 ```
 
-## 🌐 Env
-Execute the script files located in the `/scripts` directory according to your operating system.
+If you want to run tests:
+
+1. Install [Task](https://taskfile.dev/installation/).
+2. Initialize your `.env` file by running `task install:<os>`.
 
 ## 🔑 Keypair Authentication
 To access Jito MEV functionalities, you'll need a whitelisted Public Key obtained from a fresh KeyPair; submit your Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).

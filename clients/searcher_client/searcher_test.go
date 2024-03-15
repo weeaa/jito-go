@@ -11,23 +11,28 @@ import (
 	"github.com/weeaa/jito-go/pkg"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
 
 func init() {
-	godotenv.Load("/Users/weeaa/Desktop/jito-go/.env", "./jito-go/.env")
+	_, filename, _, _ := runtime.Caller(0)
+	godotenv.Load(filepath.Join(filepath.Dir(filename), "..", "..", "..", "jito-go", ".env"))
 }
 
-func TestClient(t *testing.T) {
+func TestSearcherClient(t *testing.T) {
+
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
-	if !ok {
-		t.Fatal("privateKey could not be found in .env file (paths [.env] [./jito-go/.env])")
-	}
+	assert.True(t, ok, "getting PRIVATE_KEY from .env")
+
+	rpcAddr, ok := os.LookupEnv("JITO_RPC")
+	assert.True(t, ok, "getting JITO_RPC from .env")
 
 	client, err := NewSearcherClient(
 		jito_go.NewYork.BlockEngineURL,
-		rpc.New(rpc.MainNetBeta_RPC),
+		rpc.New(rpcAddr),
 		solana.MustPrivateKeyFromBase58(privKey),
 		nil,
 	)
@@ -164,7 +169,5 @@ func TestClient(t *testing.T) {
 			config,
 		)
 		assert.NoError(t, err, "simulating bundle")
-
 	})
-
 }
