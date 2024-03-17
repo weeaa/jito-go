@@ -8,64 +8,24 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"math/big"
 	"math/rand"
-	"os"
 )
-
-type BundleRejectionError struct {
-	Message string
-}
-
-func (e BundleRejectionError) Error() string {
-	return e.Message
-}
-
-func NewStateAuctionBidRejectedError(auction string, tip uint64) error {
-	return BundleRejectionError{
-		Message: fmt.Sprintf("bundle lost state auction, auction: %s, tip %d lamports", auction, tip),
-	}
-}
-
-func NewWinningBatchBidRejectedError(auction string, tip uint64) error {
-	return BundleRejectionError{
-		Message: fmt.Sprintf("bundle won state auction but failed global auction, auction %s, tip %d lamports", auction, tip),
-	}
-}
-
-func NewSimulationFailureError(tx string, message string) error {
-	return BundleRejectionError{
-		Message: fmt.Sprintf("bundle simulation failure on tx %s, message: %s", tx, message),
-	}
-}
-
-func NewInternalError(message string) error {
-	return BundleRejectionError{
-		Message: fmt.Sprintf("internal error %s", message),
-	}
-}
-
-func NewDroppedBundle(message string) error {
-	return BundleRejectionError{
-		Message: fmt.Sprintf("bundle dropped %s", message),
-	}
-}
 
 type Client struct {
 	GrpcConn *grpc.ClientConn
-	logger   zerolog.Logger
 	RpcConn  *rpc.Client
 
 	SearcherService proto.SearcherServiceClient
 
 	Auth *pkg.AuthenticationService
 
-	ErrChan chan error
+	ErrChan     chan error
+	GrpcErrChan chan error
 }
 
 func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
@@ -75,7 +35,8 @@ func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey sol
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := grpc.Dial(grpcDialURL, opts...)
+	grpcErrChan := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +52,8 @@ func NewSearcherClient(grpcDialURL string, rpcClient *rpc.Client, privateKey sol
 		RpcConn:         rpcClient,
 		SearcherService: searcherService,
 		Auth:            authService,
-		logger:          zerolog.New(os.Stdout).With().Timestamp().Str("service", "searcher-client").Logger(),
 		ErrChan:         make(chan error),
+		GrpcErrChan:     grpcErrChan,
 	}, nil
 }
 
@@ -181,6 +142,7 @@ func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccounts
 
 	return nil
 }
+
 // SubscribeProgramsMempoolTransactions subscribes to the mempool transactions of the provided programs.
 func (c *Client) SubscribeProgramsMempoolTransactions(payload *SubscribeProgramsMempoolTransactionsPayload) error {
 	sub, err := c.NewMempoolStreamProgram(payload.Accounts, payload.Regions)
@@ -327,10 +289,8 @@ type ExecutionAccounts struct {
 }
 
 type SimulateBundleParams struct {
-	EncodedTransactions []string `json:"encodedTransactions"` // base64 encoded transactions (obtained through tx.ToBase64())
+	EncodedTransactions []string `json:"encodedTransactions"`
 }
-
-/**/
 
 type SimulatedBundleResponse struct {
 	Context interface{}                   `json:"context"`
@@ -361,11 +321,10 @@ type Account struct {
 
 type ReturnData struct {
 	ProgramId string    `json:"programId"`
-	Data      [2]string `json:"data"` // Assuming tuple is [2]string
+	Data      [2]string `json:"data"`
 }
 
-// SimulateBundle is an RPC method that simulates a bundle
-// – exclusively available to Jito-Solana validator.
+// SimulateBundle is an RPC method that simulates a bundle – exclusively available to Jito-Solana validator.
 func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
 	out := new(SimulatedBundleResponse)
 
@@ -415,6 +374,7 @@ func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
 	return nil
 }
 
+// GenerateTipInstruction is a function that generates a Solana tip instruction.
 func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
 	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()
 }
@@ -442,4 +402,42 @@ func assemblePackets(transactions []*solana.Transaction) ([]*proto.Packet, error
 	}
 
 	return packets, nil
+}
+
+type BundleRejectionError struct {
+	Message string
+}
+
+func (e BundleRejectionError) Error() string {
+	return e.Message
+}
+
+func NewStateAuctionBidRejectedError(auction string, tip uint64) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle lost state auction, auction: %s, tip %d lamports", auction, tip),
+	}
+}
+
+func NewWinningBatchBidRejectedError(auction string, tip uint64) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle won state auction but failed global auction, auction %s, tip %d lamports", auction, tip),
+	}
+}
+
+func NewSimulationFailureError(tx string, message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle simulation failure on tx %s, message: %s", tx, message),
+	}
+}
+
+func NewInternalError(message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("internal error %s", message),
+	}
+}
+
+func NewDroppedBundle(message string) error {
+	return BundleRejectionError{
+		Message: fmt.Sprintf("bundle dropped %s", message),
+	}
 }

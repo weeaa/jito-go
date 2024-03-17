@@ -3,17 +3,16 @@ package geyser_client
 import (
 	"context"
 	"crypto/tls"
-	"github.com/rs/zerolog"
+	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"os"
 )
 
 type Client struct {
-	GrpcConn *grpc.ClientConn
-	logger   zerolog.Logger
-	Ctx      context.Context
+	GrpcConn  *grpc.ClientConn
+	GrpcErrCh chan error
+	Ctx       context.Context
 
 	Geyser proto.GeyserClient
 
@@ -22,7 +21,8 @@ type Client struct {
 	TransactionUpdateChannel    chan *proto.TransactionUpdate
 	AccountUpdateChannel        chan *proto.AccountUpdate
 	PartialAccountUpdateChannel chan *proto.PartialAccountUpdate
-	ErrChan                     chan error
+
+	ErrCh chan error
 }
 
 func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
@@ -32,7 +32,8 @@ func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Con
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := grpc.Dial(grpcDialURL, opts...)
+	grpcErrChan := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +47,14 @@ func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Con
 		SlotUpdateChannel:        make(chan *proto.SlotUpdate),
 		TransactionUpdateChannel: make(chan *proto.TransactionUpdate),
 		AccountUpdateChannel:     make(chan *proto.AccountUpdate),
-		ErrChan:                  make(chan error),
-		logger:                   zerolog.New(os.Stdout).With().Timestamp().Str("service", "geyser-client").Logger(),
+		ErrCh:                    make(chan error),
+		GrpcErrCh:                grpcErrChan,
 		Ctx:                      ctx,
 	}, nil
 }
 
-func (c *Client) SubscribePartialAccountUpdates() (proto.Geyser_SubscribePartialAccountUpdatesClient, error) {
-	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{})
+func (c *Client) SubscribePartialAccountUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribePartialAccountUpdatesClient, error) {
+	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{}, opts...)
 }
 
 func (c *Client) HandlePartialAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribePartialAccountUpdatesClient) {
@@ -65,7 +66,7 @@ func (c *Client) HandlePartialAccountUpdates(ctx context.Context, sub proto.Geys
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.PartialAccountUpdateChannel <- subInfo.GetPartialAccountUpdate()
@@ -74,8 +75,8 @@ func (c *Client) HandlePartialAccountUpdates(ctx context.Context, sub proto.Geys
 	}()
 }
 
-func (c *Client) SubscribeBlockUpdates() (proto.Geyser_SubscribeBlockUpdatesClient, error) {
-	return c.Geyser.SubscribeBlockUpdates(c.Ctx, &proto.SubscribeBlockUpdatesRequest{})
+func (c *Client) SubscribeBlockUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeBlockUpdatesClient, error) {
+	return c.Geyser.SubscribeBlockUpdates(c.Ctx, &proto.SubscribeBlockUpdatesRequest{}, opts...)
 }
 
 func (c *Client) HandleBlockUpdates(ctx context.Context, sub proto.Geyser_SubscribeBlockUpdatesClient) {
@@ -87,7 +88,7 @@ func (c *Client) HandleBlockUpdates(ctx context.Context, sub proto.Geyser_Subscr
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.BlockUpdateChannel <- subInfo.BlockUpdate
@@ -96,8 +97,8 @@ func (c *Client) HandleBlockUpdates(ctx context.Context, sub proto.Geyser_Subscr
 	}()
 }
 
-func (c *Client) SubscribeAccountUpdates(accounts []string) (proto.Geyser_SubscribeAccountUpdatesClient, error) {
-	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)})
+func (c *Client) SubscribeAccountUpdates(accounts []string, opts ...grpc.CallOption) (proto.Geyser_SubscribeAccountUpdatesClient, error) {
+	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)}, opts...)
 }
 
 func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient) {
@@ -109,7 +110,7 @@ func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_Subscrib
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.AccountUpdateChannel <- subInfo.AccountUpdate
@@ -118,8 +119,8 @@ func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_Subscrib
 	}()
 }
 
-func (c *Client) SubscribeProgramUpdates(programs []string) (proto.Geyser_SubscribeProgramUpdatesClient, error) {
-	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)})
+func (c *Client) SubscribeProgramUpdates(programs []string, opts ...grpc.CallOption) (proto.Geyser_SubscribeProgramUpdatesClient, error) {
+	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)}, opts...)
 }
 
 func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient) {
@@ -131,7 +132,7 @@ func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_Subscribe
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.AccountUpdateChannel <- subInfo.AccountUpdate
@@ -140,8 +141,8 @@ func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_Subscribe
 	}()
 }
 
-func (c *Client) SubscribeTransactionUpdates() (proto.Geyser_SubscribeTransactionUpdatesClient, error) {
-	return c.Geyser.SubscribeTransactionUpdates(c.Ctx, &proto.SubscribeTransactionUpdatesRequest{})
+func (c *Client) SubscribeTransactionUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeTransactionUpdatesClient, error) {
+	return c.Geyser.SubscribeTransactionUpdates(c.Ctx, &proto.SubscribeTransactionUpdatesRequest{}, opts...)
 }
 
 func (c *Client) HandleTransactionUpdates(ctx context.Context, sub proto.Geyser_SubscribeTransactionUpdatesClient) {
@@ -153,7 +154,7 @@ func (c *Client) HandleTransactionUpdates(ctx context.Context, sub proto.Geyser_
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.TransactionUpdateChannel <- subInfo.Transaction
@@ -162,8 +163,8 @@ func (c *Client) HandleTransactionUpdates(ctx context.Context, sub proto.Geyser_
 	}()
 }
 
-func (c *Client) SubscribeSlotUpdates() (proto.Geyser_SubscribeSlotUpdatesClient, error) {
-	return c.Geyser.SubscribeSlotUpdates(c.Ctx, &proto.SubscribeSlotUpdateRequest{})
+func (c *Client) SubscribeSlotUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeSlotUpdatesClient, error) {
+	return c.Geyser.SubscribeSlotUpdates(c.Ctx, &proto.SubscribeSlotUpdateRequest{}, opts...)
 }
 
 func (c *Client) HandleSlotUpdates(ctx context.Context, sub proto.Geyser_SubscribeSlotUpdatesClient) {
@@ -175,7 +176,7 @@ func (c *Client) HandleSlotUpdates(ctx context.Context, sub proto.Geyser_Subscri
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- err
+					c.ErrCh <- err
 					continue
 				}
 				c.SlotUpdateChannel <- subInfo.SlotUpdate

@@ -5,38 +5,43 @@ import (
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"os"
 )
 
 type RelayerBlockEngineClient struct {
-	GrpcConn *grpc.ClientConn
-	RpcConn  *rpc.Client
-	logger   zerolog.Logger
+	GrpcConn  *grpc.ClientConn
+	GrpcErrCh chan error
+	RpcConn   *rpc.Client
+	ErrCh     chan error
 
 	BlockEngineRelayerClient proto.BlockEngineRelayerClient
 
-	Auth  *pkg.AuthenticationService
-	ErrCh chan error
+	Auth *pkg.AuthenticationService
 }
 
 type ValidatorBlockEngineClient struct {
-	GrpcConn *grpc.ClientConn
-	RpcConn  *rpc.Client
-	logger   zerolog.Logger
+	GrpcConn  *grpc.ClientConn
+	GrpcErrCh chan error
+	RpcConn   *rpc.Client
+	ErrCh     chan error
 
 	BlockEngineValidatorClient proto.BlockEngineValidatorClient
 
-	Auth  *pkg.AuthenticationService
-	ErrCh chan error
+	Auth *pkg.AuthenticationService
 }
 
-func NewRelayerBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*RelayerBlockEngineClient, error) {
-	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+func NewRelayerBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*RelayerBlockEngineClient, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	grpcErrChan := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +57,19 @@ func NewRelayerBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, priv
 		RpcConn:                  rpcClient,
 		BlockEngineRelayerClient: blockEngineRelayerClient,
 		Auth:                     pkg.NewAuthenticationService(conn, privateKey),
-		logger:                   zerolog.New(os.Stdout).With().Logger(),
+		GrpcErrCh:                grpcErrChan,
 	}, nil
 }
 
-func NewValidatorBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*ValidatorBlockEngineClient, error) {
-	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+func NewValidatorBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*ValidatorBlockEngineClient, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	grpcErrChan := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +85,7 @@ func NewValidatorBlockEngineClient(grpcDialURL string, rpcClient *rpc.Client, pr
 		RpcConn:                    rpcClient,
 		BlockEngineValidatorClient: blockEngineValidatorClient,
 		Auth:                       authService,
-		logger:                     zerolog.New(os.Stdout).With().Logger(),
+		GrpcErrCh:                  grpcErrChan,
 	}, nil
 }
 
@@ -91,7 +103,6 @@ func (c *ValidatorBlockEngineClient) HandlePacketSubscription(ctx context.Contex
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.Error().Err(ctx.Err())
 				return
 			default:
 				var subInfo *proto.SubscribePacketsResponse
@@ -121,7 +132,6 @@ func (c *ValidatorBlockEngineClient) HandleBundleSubscription(ctx context.Contex
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.Error().Err(ctx.Err())
 				return
 			default:
 				var subInfo *proto.SubscribeBundlesResponse
@@ -137,18 +147,18 @@ func (c *ValidatorBlockEngineClient) HandleBundleSubscription(ctx context.Contex
 	return sub, nil
 }
 
-func (c *ValidatorBlockEngineClient) BlockEngineValidatorClientGetBlockBuilderFeeInfo() (*proto.BlockBuilderFeeInfoResponse, error) {
-	return c.BlockEngineValidatorClient.GetBlockBuilderFeeInfo(c.Auth.GrpcCtx, &proto.BlockBuilderFeeInfoRequest{})
+func (c *ValidatorBlockEngineClient) BlockEngineValidatorClientGetBlockBuilderFeeInfo(opts ...grpc.CallOption) (*proto.BlockBuilderFeeInfoResponse, error) {
+	return c.BlockEngineValidatorClient.GetBlockBuilderFeeInfo(c.Auth.GrpcCtx, &proto.BlockBuilderFeeInfoRequest{}, opts...)
 }
 
-func (c *RelayerBlockEngineClient) BlockEngineRelayerClientSubscribeAccountsOfInterest() (proto.BlockEngineRelayer_SubscribeAccountsOfInterestClient, error) {
-	return c.BlockEngineRelayerClient.SubscribeAccountsOfInterest(c.Auth.GrpcCtx, &proto.AccountsOfInterestRequest{})
+func (c *RelayerBlockEngineClient) BlockEngineRelayerClientSubscribeAccountsOfInterest(opts ...grpc.CallOption) (proto.BlockEngineRelayer_SubscribeAccountsOfInterestClient, error) {
+	return c.BlockEngineRelayerClient.SubscribeAccountsOfInterest(c.Auth.GrpcCtx, &proto.AccountsOfInterestRequest{}, opts...)
 }
 
-func (c *RelayerBlockEngineClient) BlockEngineRelayerClientSubscribeProgramsOfInterest() (proto.BlockEngineRelayer_SubscribeProgramsOfInterestClient, error) {
-	return c.BlockEngineRelayerClient.SubscribeProgramsOfInterest(c.Auth.GrpcCtx, &proto.ProgramsOfInterestRequest{})
+func (c *RelayerBlockEngineClient) BlockEngineRelayerClientSubscribeProgramsOfInterest(opts ...grpc.CallOption) (proto.BlockEngineRelayer_SubscribeProgramsOfInterestClient, error) {
+	return c.BlockEngineRelayerClient.SubscribeProgramsOfInterest(c.Auth.GrpcCtx, &proto.ProgramsOfInterestRequest{}, opts...)
 }
 
-func (c *RelayerBlockEngineClient) BlockEngineRelayerClientStartExpiringPacketStream() (proto.BlockEngineRelayer_StartExpiringPacketStreamClient, error) {
-	return c.BlockEngineRelayerClient.StartExpiringPacketStream(c.Auth.GrpcCtx)
+func (c *RelayerBlockEngineClient) BlockEngineRelayerClientStartExpiringPacketStream(opts ...grpc.CallOption) (proto.BlockEngineRelayer_StartExpiringPacketStreamClient, error) {
+	return c.BlockEngineRelayerClient.StartExpiringPacketStream(c.Auth.GrpcCtx, opts...)
 }

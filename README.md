@@ -17,6 +17,7 @@ PRs and contributions are welcome.
 - [Keypair Authentication](#-keypair-authentication)
 - [Examples](#-examples)
 - [Disclaimer](#-disclaimer)
+- [Support](#-support)
 - [License](#-license)
 
 ## ✨ Features
@@ -67,11 +68,12 @@ go get github.com/weeaa/jito-go@latest
 If you want to run tests:
 
 1. Install [Task](https://taskfile.dev/installation/).
-2. Initialize your `.env` file by running `task install:<os>`.
+2. Initialize your `.env` file by running `task install:<os>` (darwin/linux/windows).
+3. Run tests with `task test`.
 
 ## 🔑 Keypair Authentication
 To access Jito MEV functionalities, you'll need a whitelisted Public Key obtained from a fresh KeyPair; submit your Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
-In order to generate a new KeyPair, you can use the following function `NewKeyPair()` from the `/pkg` package.
+In order to generate a new KeyPair, you can use the following function `GenerateWallet()` from the `/pkg` package.
 
 ## 💻 Examples
 
@@ -237,6 +239,10 @@ func main() {
 ## 🚨 Disclaimer
 
 **This library is not affiliated with Jito Labs**. It is a community project and is not officially supported by Jito Labs. Use at your own risk.
+
+## 🛟 Support
+If my work has been useful in building your for-profit services/infra/bots/etc, consider donating at
+`EcrHvqa5Vh4NhR3bitRZVrdcUGr1Z3o6bXHz7xgBU2FB` (SOL).
 
 ## 📃 License
 

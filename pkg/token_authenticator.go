@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"os"
 	"sync"
 	"time"
 )
@@ -22,7 +20,6 @@ type AuthenticationService struct {
 	ExpiresAt   int64 // seconds
 	ErrChan     chan error
 	mu          sync.Mutex
-	logger      zerolog.Logger
 }
 
 func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.PrivateKey) *AuthenticationService {
@@ -32,13 +29,17 @@ func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.Priva
 		KeyPair:     NewKeyPair(privateKey),
 		ErrChan:     make(chan error, 1),
 		mu:          sync.Mutex{},
-		logger:      zerolog.New(os.Stdout).With().Timestamp().Str("service", "auth").Logger(),
 	}
 }
 
 // AuthenticateAndRefresh is a function that authenticates the client and refreshes the access token.
 func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
-	respChallenge, err := as.AuthService.GenerateAuthChallenge(as.GrpcCtx, &proto.GenerateAuthChallengeRequest{Role: role, Pubkey: as.KeyPair.PublicKey.Bytes()})
+	respChallenge, err := as.AuthService.GenerateAuthChallenge(as.GrpcCtx,
+		&proto.GenerateAuthChallengeRequest{
+			Role:   role,
+			Pubkey: as.KeyPair.PublicKey.Bytes(),
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -62,14 +63,6 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 	as.updateAuthorizationMetadata(respToken.AccessToken)
 
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				as.logger.Error().Msgf("recovered from panic %v", r)
-				if err = as.AuthenticateAndRefresh(role); err != nil {
-					as.logger.Warn().Msgf("unable to re-authenticate after panic, stopping...")
-				}
-			}
-		}()
 		for {
 			select {
 			case <-as.GrpcCtx.Done():
@@ -80,7 +73,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 					RefreshToken: respToken.RefreshToken.Value,
 				})
 				if err != nil {
-					as.logger.Error().Err(err).Msg("failed to refresh access token")
+					as.ErrChan <- fmt.Errorf("failed to refresh access token: %w", err)
 					continue
 				}
 

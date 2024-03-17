@@ -26,7 +26,13 @@ func BuildTransactionLinks(txns []solana.Signature, platform Platform) []string 
 	return txs
 }
 
-// NewKeyPair creates a new Solana Wallet.
+// NewKeyPair creates a Keypair from a private key.
 func NewKeyPair(privateKey solana.PrivateKey) *Keypair {
 	return &Keypair{PrivateKey: privateKey, PublicKey: privateKey.PublicKey()}
+}
+
+// GenerateWallet creates a new Solana Wallet.
+func GenerateWallet() *Keypair {
+	wallet := solana.NewWallet()
+	return &Keypair{PublicKey: wallet.PublicKey(), PrivateKey: wallet.PrivateKey}
 }

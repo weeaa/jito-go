@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// CreateAndObserveGRPCConn creates a new gRPC connection and observes it for changes.
+// CreateAndObserveGRPCConn creates a new gRPC connection and observes its conn status.
 func CreateAndObserveGRPCConn(ctx context.Context, errCh chan error, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	conn, err := grpc.DialContext(ctx, target, opts...)
 	if err != nil {

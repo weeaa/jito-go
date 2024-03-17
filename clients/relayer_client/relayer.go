@@ -1,26 +1,23 @@
 package relayer_client
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
-	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"os"
 )
 
 type Client struct {
-	GrpcConn *grpc.ClientConn
-	logger   zerolog.Logger
+	GrpcConn    *grpc.ClientConn
+	GrpcErrChan chan error
+	Auth        *pkg.AuthenticationService
 
 	Relayer proto.RelayerClient
-
-	Auth *pkg.AuthenticationService
 }
 
-// NewRelayerClient is a function that creates a new instance of a Client.
 func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -28,7 +25,8 @@ func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfi
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := grpc.Dial(grpcDialURL, opts...)
+	grpcErrChan := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +38,49 @@ func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfi
 	}
 
 	return &Client{
-		GrpcConn: conn,
-		Relayer:  relayerClient,
-		Auth:     authService,
-		logger:   zerolog.New(os.Stdout).With().Timestamp().Str("service", "relayer").Logger(),
+		GrpcConn:    conn,
+		Relayer:     relayerClient,
+		Auth:        authService,
+		GrpcErrChan: grpcErrChan,
 	}, nil
 }
 
-func (c *Client) GetTpuConfigs() (*proto.GetTpuConfigsResponse, error) {
-	return c.Relayer.GetTpuConfigs(c.Auth.GrpcCtx, &proto.GetTpuConfigsRequest{})
+func (c *Client) GetTpuConfigs(opts ...grpc.CallOption) (*proto.GetTpuConfigsResponse, error) {
+	return c.Relayer.GetTpuConfigs(c.Auth.GrpcCtx, &proto.GetTpuConfigsRequest{}, opts...)
 }
 
-func (c *Client) SubscribePackets() (proto.Relayer_SubscribePacketsClient, error) {
-	return c.Relayer.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{})
+func (c *Client) SubscribePackets(opts ...grpc.CallOption) (proto.Relayer_SubscribePacketsClient, error) {
+	return c.Relayer.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{}, opts...)
+}
+
+func (c *Client) HandlePacketsSubscription(chTx chan []*solana.Transaction, chErr chan error) (proto.Relayer_SubscribePacketsClient, error) {
+	sub, err := c.SubscribePackets()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-c.Auth.GrpcCtx.Done():
+				return
+			default:
+				var packet *proto.SubscribePacketsResponse
+				packet, err = sub.Recv()
+				if err != nil {
+					chErr <- err
+				}
+
+				var txns = make([]*solana.Transaction, 0, len(packet.Batch.GetPackets()))
+				txns, err = pkg.ConvertBatchProtobufPacketToTransaction(packet.Batch.GetPackets())
+				if err != nil {
+					chErr <- err
+				}
+
+				chTx <- txns
+			}
+		}
+	}()
+
+	return sub, nil
 }

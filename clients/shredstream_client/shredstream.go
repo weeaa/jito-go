@@ -4,18 +4,15 @@ import (
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/rs/zerolog"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"os"
 )
 
 type Client struct {
 	GrpcConn *grpc.ClientConn
 	RpcConn  *rpc.Client
-	logger   zerolog.Logger
 
 	ShredstreamClient proto.ShredstreamClient
 
@@ -39,7 +36,6 @@ func NewShredstreamClient(grpcDialURL string, rpcClient *rpc.Client, privateKey 
 		RpcConn:           rpcClient,
 		ShredstreamClient: shredstreamService,
 		Auth:              authService,
-		logger:            zerolog.New(os.Stdout).With().Timestamp().Str("service", "shredstream-client").Logger(),
 	}, nil
 }
 
