@@ -3,6 +3,7 @@ package geyser_client
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"github.com/weeaa/jito-go/pkg"
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
@@ -16,15 +17,10 @@ type Client struct {
 
 	Geyser proto.GeyserClient
 
-	BlockUpdateChannel          chan *proto.BlockUpdate
-	SlotUpdateChannel           chan *proto.SlotUpdate
-	TransactionUpdateChannel    chan *proto.TransactionUpdate
-	AccountUpdateChannel        chan *proto.AccountUpdate
-	PartialAccountUpdateChannel chan *proto.PartialAccountUpdate
-
 	ErrCh chan error
 }
 
+// NewGeyserClient creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
 func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -41,15 +37,11 @@ func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Con
 	geyserClient := proto.NewGeyserClient(conn)
 
 	return &Client{
-		GrpcConn:                 conn,
-		Geyser:                   geyserClient,
-		BlockUpdateChannel:       make(chan *proto.BlockUpdate),
-		SlotUpdateChannel:        make(chan *proto.SlotUpdate),
-		TransactionUpdateChannel: make(chan *proto.TransactionUpdate),
-		AccountUpdateChannel:     make(chan *proto.AccountUpdate),
-		ErrCh:                    make(chan error),
-		GrpcErrCh:                grpcErrChan,
-		Ctx:                      ctx,
+		GrpcConn:  conn,
+		Geyser:    geyserClient,
+		ErrCh:     make(chan error),
+		GrpcErrCh: grpcErrChan,
+		Ctx:       ctx,
 	}, nil
 }
 
@@ -57,7 +49,7 @@ func (c *Client) SubscribePartialAccountUpdates(opts ...grpc.CallOption) (proto.
 	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{}, opts...)
 }
 
-func (c *Client) HandlePartialAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribePartialAccountUpdatesClient) {
+func (c *Client) OnPartialAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribePartialAccountUpdatesClient, ch chan *proto.PartialAccountUpdate) {
 	go func() {
 		for {
 			select {
@@ -66,10 +58,10 @@ func (c *Client) HandlePartialAccountUpdates(ctx context.Context, sub proto.Geys
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnPartialAccountUpdates: %w", err)
 					continue
 				}
-				c.PartialAccountUpdateChannel <- subInfo.GetPartialAccountUpdate()
+				ch <- subInfo.GetPartialAccountUpdate()
 			}
 		}
 	}()
@@ -79,7 +71,7 @@ func (c *Client) SubscribeBlockUpdates(opts ...grpc.CallOption) (proto.Geyser_Su
 	return c.Geyser.SubscribeBlockUpdates(c.Ctx, &proto.SubscribeBlockUpdatesRequest{}, opts...)
 }
 
-func (c *Client) HandleBlockUpdates(ctx context.Context, sub proto.Geyser_SubscribeBlockUpdatesClient) {
+func (c *Client) OnBlockUpdates(ctx context.Context, sub proto.Geyser_SubscribeBlockUpdatesClient, ch chan *proto.BlockUpdate) {
 	go func() {
 		for {
 			select {
@@ -88,10 +80,10 @@ func (c *Client) HandleBlockUpdates(ctx context.Context, sub proto.Geyser_Subscr
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnBlockUpdates: %w", err)
 					continue
 				}
-				c.BlockUpdateChannel <- subInfo.BlockUpdate
+				ch <- subInfo.BlockUpdate
 			}
 		}
 	}()
@@ -101,7 +93,7 @@ func (c *Client) SubscribeAccountUpdates(accounts []string, opts ...grpc.CallOpt
 	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)}, opts...)
 }
 
-func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient) {
+func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient, ch chan *proto.AccountUpdate) {
 	go func() {
 		for {
 			select {
@@ -110,10 +102,10 @@ func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_Subscrib
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnAccountUpdates: %w", err)
 					continue
 				}
-				c.AccountUpdateChannel <- subInfo.AccountUpdate
+				ch <- subInfo.AccountUpdate
 			}
 		}
 	}()
@@ -123,7 +115,7 @@ func (c *Client) SubscribeProgramUpdates(programs []string, opts ...grpc.CallOpt
 	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)}, opts...)
 }
 
-func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient) {
+func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient, ch chan *proto.AccountUpdate) {
 	go func() {
 		for {
 			select {
@@ -132,10 +124,10 @@ func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_Subscribe
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnProgramUpdate: %w", err)
 					continue
 				}
-				c.AccountUpdateChannel <- subInfo.AccountUpdate
+				ch <- subInfo.AccountUpdate
 			}
 		}
 	}()
@@ -145,7 +137,7 @@ func (c *Client) SubscribeTransactionUpdates(opts ...grpc.CallOption) (proto.Gey
 	return c.Geyser.SubscribeTransactionUpdates(c.Ctx, &proto.SubscribeTransactionUpdatesRequest{}, opts...)
 }
 
-func (c *Client) HandleTransactionUpdates(ctx context.Context, sub proto.Geyser_SubscribeTransactionUpdatesClient) {
+func (c *Client) OnTransactionUpdates(ctx context.Context, sub proto.Geyser_SubscribeTransactionUpdatesClient, ch chan *proto.TransactionUpdate) {
 	go func() {
 		for {
 			select {
@@ -154,10 +146,10 @@ func (c *Client) HandleTransactionUpdates(ctx context.Context, sub proto.Geyser_
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnTransactionUpdates: %w", err)
 					continue
 				}
-				c.TransactionUpdateChannel <- subInfo.Transaction
+				ch <- subInfo.Transaction
 			}
 		}
 	}()
@@ -167,7 +159,7 @@ func (c *Client) SubscribeSlotUpdates(opts ...grpc.CallOption) (proto.Geyser_Sub
 	return c.Geyser.SubscribeSlotUpdates(c.Ctx, &proto.SubscribeSlotUpdateRequest{}, opts...)
 }
 
-func (c *Client) HandleSlotUpdates(ctx context.Context, sub proto.Geyser_SubscribeSlotUpdatesClient) {
+func (c *Client) OnSlotUpdates(ctx context.Context, sub proto.Geyser_SubscribeSlotUpdatesClient, ch chan *proto.SlotUpdate) {
 	go func() {
 		for {
 			select {
@@ -176,10 +168,10 @@ func (c *Client) HandleSlotUpdates(ctx context.Context, sub proto.Geyser_Subscri
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- err
+					c.ErrCh <- fmt.Errorf("error OnSlotUpdates: %w", err)
 					continue
 				}
-				c.SlotUpdateChannel <- subInfo.SlotUpdate
+				ch <- subInfo.SlotUpdate
 			}
 		}
 	}()

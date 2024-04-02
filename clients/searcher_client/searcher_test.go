@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/weeaa/jito-go"
 	"github.com/weeaa/jito-go/pkg"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,7 +21,7 @@ func init() {
 	godotenv.Load(filepath.Join(filepath.Dir(filename), "..", "..", "..", "jito-go", ".env"))
 }
 
-func TestSearcherClient(t *testing.T) {
+func Test_SearcherClient(t *testing.T) {
 
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
 	assert.True(t, ok, "getting PRIVATE_KEY from .env")
@@ -36,9 +35,7 @@ func TestSearcherClient(t *testing.T) {
 		solana.MustPrivateKeyFromBase58(privKey),
 		nil,
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	regions := []string{
 		jito_go.Amsterdam.Region,

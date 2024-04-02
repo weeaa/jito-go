@@ -73,7 +73,7 @@ If you want to run tests:
 
 ## 🔑 Keypair Authentication
 To access Jito MEV functionalities, you'll need a whitelisted Public Key obtained from a fresh KeyPair; submit your Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
-In order to generate a new KeyPair, you can use the following function `GenerateWallet()` from the `/pkg` package.
+In order to generate a new KeyPair, you can use the following function `GenerateKeypair()` from the `/pkg` package.
 
 ## 💻 Examples
 
@@ -236,6 +236,44 @@ func main() {
 }
 ```
 
+### `Subscribe Block Updates [Geyser]`
+```go
+package main
+
+import (
+	"context"
+	"github.com/weeaa/jito-go/clients/geyser_client"
+	"github.com/weeaa/jito-go/proto"
+	"log"
+)
+
+func main() {
+	rpcAddr := "myGeyserRpcNodeURL"
+	
+	// establish conn to geyser node...
+	client, err := geyser_client.NewGeyserClient(context.Background(), rpcAddr, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	// create block update sub
+	sub, err := client.SubscribeBlockUpdates()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// create chan to receive block updates
+	ch := make(chan *proto.BlockUpdate)
+	// feed the chan with block updates 
+	client.OnBlockUpdates(context.Background(), sub, ch)
+	
+	// loop to read new block updates from chan
+	for {
+		block := <-ch
+		log.Println(block)
+	}
+}
+
+```
 ## 🚨 Disclaimer
 
 **This library is not affiliated with Jito Labs**. It is a community project and is not officially supported by Jito Labs. Use at your own risk.
