@@ -58,6 +58,8 @@ PRs and contributions are welcome.
   - `SubscribeTransactionUpdates`
   - `SubscribeSlotUpdates`
 - [ ] **ShredStream**
+- [x] **Others** (pkg/util.go)
+  - `SubscribeTipStream`
 
 ## 💾 Installing
 
