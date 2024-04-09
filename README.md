@@ -63,6 +63,7 @@ PRs and contributions are welcome.
 
 ## 💾 Installing
 
+Go 1.21 or higher
 ```shell
 go get github.com/weeaa/jito-go@latest
 ```

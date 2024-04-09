@@ -24,7 +24,7 @@ type AuthenticationService struct {
 
 func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.PrivateKey) *AuthenticationService {
 	return &AuthenticationService{
-		GrpcCtx:     context.TODO(),
+		GrpcCtx:     context.Background(),
 		AuthService: proto.NewAuthServiceClient(grpcConn),
 		KeyPair:     NewKeyPair(privateKey),
 		ErrChan:     make(chan error, 1),
@@ -46,7 +46,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 
 	challenge := fmt.Sprintf("%s-%s", as.KeyPair.PublicKey.String(), respChallenge.GetChallenge())
 
-	sig, err := as.generateSignature([]byte(challenge))
+	sig, err := as.generateChallengeSignature([]byte(challenge))
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 				}
 
 				as.updateAuthorizationMetadata(resp.AccessToken)
-				time.Sleep(time.Until(resp.AccessToken.ExpiresAtUtc.AsTime()) - 30*time.Second)
+				time.Sleep(time.Until(resp.AccessToken.ExpiresAtUtc.AsTime()) - 15*time.Second)
 			}
 		}
 	}()
@@ -96,7 +96,7 @@ func (as *AuthenticationService) updateAuthorizationMetadata(token *proto.Token)
 	as.ExpiresAt = token.ExpiresAtUtc.Seconds
 }
 
-func (as *AuthenticationService) generateSignature(challenge []byte) ([]byte, error) {
+func (as *AuthenticationService) generateChallengeSignature(challenge []byte) ([]byte, error) {
 	sig, err := as.KeyPair.PrivateKey.Sign(challenge)
 	if err != nil {
 		return nil, err

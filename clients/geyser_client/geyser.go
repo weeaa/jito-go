@@ -11,25 +11,23 @@ import (
 )
 
 type Client struct {
-	GrpcConn  *grpc.ClientConn
-	GrpcErrCh chan error
-	Ctx       context.Context
+	GrpcConn *grpc.ClientConn
+	Ctx      context.Context
 
 	Geyser proto.GeyserClient
 
-	ErrCh chan error
+	ErrChan chan error
 }
 
-// NewGeyserClient creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
-func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+// New creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
+func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	grpcErrChan := make(chan error)
-	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,11 +35,10 @@ func NewGeyserClient(ctx context.Context, grpcDialURL string, tlsConfig *tls.Con
 	geyserClient := proto.NewGeyserClient(conn)
 
 	return &Client{
-		GrpcConn:  conn,
-		Geyser:    geyserClient,
-		ErrCh:     make(chan error),
-		GrpcErrCh: grpcErrChan,
-		Ctx:       ctx,
+		GrpcConn: conn,
+		Geyser:   geyserClient,
+		ErrChan:  make(chan error),
+		Ctx:      ctx,
 	}, nil
 }
 
@@ -58,7 +55,7 @@ func (c *Client) OnPartialAccountUpdates(ctx context.Context, sub proto.Geyser_S
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnPartialAccountUpdates: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnPartialAccountUpdates: %w", err)
 					continue
 				}
 				ch <- subInfo.GetPartialAccountUpdate()
@@ -80,7 +77,7 @@ func (c *Client) OnBlockUpdates(ctx context.Context, sub proto.Geyser_SubscribeB
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnBlockUpdates: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnBlockUpdates: %w", err)
 					continue
 				}
 				ch <- subInfo.BlockUpdate
@@ -102,7 +99,7 @@ func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_Subscrib
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnAccountUpdates: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnAccountUpdates: %w", err)
 					continue
 				}
 				ch <- subInfo.AccountUpdate
@@ -124,7 +121,7 @@ func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_Subscribe
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnProgramUpdate: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnProgramUpdate: %w", err)
 					continue
 				}
 				ch <- subInfo.AccountUpdate
@@ -146,7 +143,7 @@ func (c *Client) OnTransactionUpdates(ctx context.Context, sub proto.Geyser_Subs
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnTransactionUpdates: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnTransactionUpdates: %w", err)
 					continue
 				}
 				ch <- subInfo.Transaction
@@ -168,7 +165,7 @@ func (c *Client) OnSlotUpdates(ctx context.Context, sub proto.Geyser_SubscribeSl
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrCh <- fmt.Errorf("error OnSlotUpdates: %w", err)
+					c.ErrChan <- fmt.Errorf("error OnSlotUpdates: %w", err)
 					continue
 				}
 				ch <- subInfo.SlotUpdate

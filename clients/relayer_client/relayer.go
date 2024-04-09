@@ -11,22 +11,20 @@ import (
 )
 
 type Client struct {
-	GrpcConn    *grpc.ClientConn
-	GrpcErrChan chan error
-	Auth        *pkg.AuthenticationService
+	GrpcConn *grpc.ClientConn
+	Auth     *pkg.AuthenticationService
 
 	Relayer proto.RelayerClient
 }
 
-func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+func New(grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	grpcErrChan := make(chan error)
-	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcErrChan, grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +36,9 @@ func NewRelayerClient(grpcDialURL string, privateKey solana.PrivateKey, tlsConfi
 	}
 
 	return &Client{
-		GrpcConn:    conn,
-		Relayer:     relayerClient,
-		Auth:        authService,
-		GrpcErrChan: grpcErrChan,
+		GrpcConn: conn,
+		Relayer:  relayerClient,
+		Auth:     authService,
 	}, nil
 }
 
@@ -53,10 +50,13 @@ func (c *Client) SubscribePackets(opts ...grpc.CallOption) (proto.Relayer_Subscr
 	return c.Relayer.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{}, opts...)
 }
 
-func (c *Client) HandlePacketsSubscription(chTx chan []*solana.Transaction, chErr chan error) (proto.Relayer_SubscribePacketsClient, error) {
+func (c *Client) HandlePacketsSubscription() (proto.Relayer_SubscribePacketsClient, chan []*solana.Transaction, chan error) {
+	chTx := make(chan []*solana.Transaction)
+	chErr := make(chan error)
 	sub, err := c.SubscribePackets()
 	if err != nil {
-		return nil, err
+		chErr <- err
+		return nil, nil, chErr
 	}
 
 	go func() {
@@ -82,5 +82,5 @@ func (c *Client) HandlePacketsSubscription(chTx chan []*solana.Transaction, chEr
 		}
 	}()
 
-	return sub, nil
+	return sub, chTx, chErr
 }

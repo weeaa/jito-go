@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/pkg"
+	"github.com/weeaa/jito-go/proto"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,26 +16,32 @@ import (
 	"time"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	_, filename, _, _ := runtime.Caller(0)
 	godotenv.Load(filepath.Join(filepath.Dir(filename), "..", "..", "..", "jito-go", ".env"))
+	os.Exit(m.Run())
 }
 
 func Test_SearcherClient(t *testing.T) {
-
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
-	assert.True(t, ok, "getting PRIVATE_KEY from .env")
+	if !assert.True(t, ok, "getting PRIVATE_KEY from .env") {
+		t.FailNow()
+	}
 
 	rpcAddr, ok := os.LookupEnv("JITO_RPC")
-	assert.True(t, ok, "getting JITO_RPC from .env")
+	if !assert.True(t, ok, "getting JITO_RPC from .env") {
+		t.FailNow()
+	}
 
-	client, err := NewSearcherClient(
+	client, err := New(
 		jito_go.NewYork.BlockEngineURL,
 		rpc.New(rpcAddr),
 		solana.MustPrivateKeyFromBase58(privKey),
 		nil,
 	)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
 
 	regions := []string{
 		jito_go.Amsterdam.Region,
@@ -45,8 +51,10 @@ func Test_SearcherClient(t *testing.T) {
 	}
 
 	t.Run("GetRegions", func(t *testing.T) {
-		_, err = client.GetRegions()
+		var resp *proto.GetRegionsResponse
+		resp, err = client.GetRegions()
 		assert.NoError(t, err)
+		assert.Equal(t, jito_go.NewYork.Region, resp.CurrentRegion)
 	})
 
 	t.Run("GetConnectedLeaders", func(t *testing.T) {
@@ -70,20 +78,26 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
-		t.Skip("skipping test due to rpc method being disabled")
+		//t.Skip("skipping test due to rpc method being disabled")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		_ = ctx
+
 	})
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
-		t.Skip("skipping test due to rpc method being disabled")
+		//t.Skip("skipping test due to rpc method being disabled")
 
-		ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
 
 		payload := &SubscribeAccountsMempoolTransactionsPayload{
-			Ctx:      context.TODO(),
+			Ctx:      context.Background(),
 			Accounts: []string{USDC, PENG},
 			Regions:  regions,
 			TxCh:     make(chan *solana.Transaction),
@@ -91,7 +105,9 @@ func Test_SearcherClient(t *testing.T) {
 		}
 
 		err = client.SubscribeAccountsMempoolTransactions(payload)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
 
 		for {
 			select {
@@ -99,7 +115,7 @@ func Test_SearcherClient(t *testing.T) {
 				t.Fatal()
 			default:
 				tx := <-payload.TxCh
-				assert.Contains(t, pkg.ExtractSigFromTx(tx).String(), "")
+				assert.NotNil(t, tx)
 				break
 			}
 		}
@@ -132,13 +148,15 @@ func Test_SearcherClient(t *testing.T) {
 		var blockHash *rpc.GetRecentBlockhashResult
 		var tx *solana.Transaction
 
-		blockHash, err = client.RpcConn.GetRecentBlockhash(context.TODO(), rpc.CommitmentConfirmed)
-		assert.NoError(t, err, "getting recebt blockhash from RPC")
+		blockHash, err = client.RpcConn.GetRecentBlockhash(context.Background(), rpc.CommitmentConfirmed)
+		if !assert.NoError(t, err, "getting recent block hash from RPC") {
+			t.FailNow()
+		}
 
 		tx, err = solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
-					10,
+					10000,
 					fundedWallet.PublicKey(),
 					solana.MustPublicKeyFromBase58("A6njahNqC6qKde6YtbHdr1MZsB5KY9aKfzTY1cj8jU3v"),
 				).Build(),
@@ -146,7 +164,9 @@ func Test_SearcherClient(t *testing.T) {
 			blockHash.Value.Blockhash,
 			solana.TransactionPayer(fundedWallet.PublicKey()),
 		)
-		assert.NoError(t, err, "creating solana transaction")
+		if !assert.NoError(t, err, "creating solana transaction") {
+			t.FailNow()
+		}
 
 		_, err = tx.Sign(
 			func(key solana.PublicKey) *solana.PrivateKey {
@@ -156,10 +176,12 @@ func Test_SearcherClient(t *testing.T) {
 				return nil
 			},
 		)
-		assert.NoError(t, err, "signing transaction")
+		if !assert.NoError(t, err, "signing transaction") {
+			t.FailNow()
+		}
 
 		_, err = client.SimulateBundle(
-			context.TODO(),
+			context.Background(),
 			SimulateBundleParams{
 				EncodedTransactions: []string{tx.MustToBase64()},
 			},

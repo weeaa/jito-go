@@ -1,6 +1,7 @@
 package shredstream_client
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -19,8 +20,14 @@ type Client struct {
 	Auth *pkg.AuthenticationService
 }
 
-func NewShredstreamClient(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey) (*Client, error) {
-	conn, err := grpc.Dial(grpcDialURL, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}

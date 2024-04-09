@@ -2,15 +2,14 @@ package pkg
 
 import (
 	"context"
-	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"time"
 )
 
 // CreateAndObserveGRPCConn creates a new gRPC connection and observes its conn status.
-func CreateAndObserveGRPCConn(ctx context.Context, errCh chan error, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	conn, err := grpc.DialContext(ctx, target, opts...)
+func CreateAndObserveGRPCConn(ctx context.Context, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(target, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,17 +36,15 @@ func CreateAndObserveGRPCConn(ctx context.Context, errCh chan error, target stri
 						retries++
 					} else {
 						conn.Close()
-						conn, err = grpc.DialContext(ctx, target, opts...)
+						conn, err = grpc.NewClient(target, opts...)
 						if err != nil {
-							errCh <- fmt.Errorf("error re-establishing connection: %w", err)
 							return
 						}
 						retries = 0
 					}
 				} else if state == connectivity.Shutdown {
-					conn, err = grpc.DialContext(ctx, target, opts...)
+					conn, err = grpc.NewClient(target, opts...)
 					if err != nil {
-						errCh <- fmt.Errorf("error re-establishing connection: %w", err)
 						return
 					}
 					retries = 0
