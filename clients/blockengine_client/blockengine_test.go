@@ -25,12 +25,16 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 		t.FailNow()
 	}
 
+	if !assert.NotEqualf(t, "", privKey, "PRIVATE_KEY shouldn't be equal to [%s]", privKey) {
+		t.FailNow()
+	}
+
 	rpcAddr, ok := os.LookupEnv("JITO_RPC")
 	if !assert.True(t, ok, "getting JITO_RPC from .env") {
 		t.FailNow()
 	}
 
-	if assert.Equal(t, "", rpcAddr) {
+	if !assert.NotEqualf(t, "", rpcAddr, "JITO_RPC shouldn't be equal to [%s]", rpcAddr) {
 		t.FailNow()
 	}
 
@@ -144,7 +148,7 @@ func Test_BlockEngineValidatorClient(t *testing.T) {
 		assert.NotNil(t, resp.Heartbeat)
 	})
 
-	t.Run("", func(t *testing.T) {
+	t.Run("SubscribeProgramsOfInterest", func(t *testing.T) {
 		sub, err := relayer.SubscribeProgramsOfInterest()
 		if !assert.NoError(t, err) {
 			t.FailNow()

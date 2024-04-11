@@ -66,7 +66,7 @@ func NewValidator(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.P
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := pkg.CreateAndObserveGRPCConn(context.TODO(), grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
