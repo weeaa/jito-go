@@ -28,7 +28,7 @@ PRs and contributions are welcome.
 - [x] Geyser
 
 ## 📡 RPC Methods
-`🤡* methods which are disabled by Jito due to malicious use`
+`🤡* methods which are deprecated by Jito due to malicious use`
 - [x] **Searcher**
   - `SubscribeMempoolAccounts` 🤡
   - `SubscribeMempoolPrograms` 🤡
@@ -89,27 +89,52 @@ import (
   "github.com/gagliardetto/solana-go"
   "github.com/gagliardetto/solana-go/programs/system"
   "github.com/gagliardetto/solana-go/rpc"
+  "github.com/joho/godotenv"
   "github.com/weeaa/jito-go"
   "github.com/weeaa/jito-go/clients/searcher_client"
   "log"
   "os"
+  "time"
 )
 
 func main() {
-  client, err := searcher_client.NewSearcherClient(
+  if err := godotenv.Load(); err != nil {
+    log.Fatal(err)
+  }
+
+  rpcAddr, ok := os.LookupEnv("JITO_RPC")
+  if !ok {
+    log.Fatal("JITO_RPC could not be found in .env")
+  }
+
+  privateKey, ok := os.LookupEnv("PRIVATE_KEY")
+  if !ok {
+    log.Fatal("PRIVATE_KEY could not be found in .env")
+  }
+
+  key, err := solana.PrivateKeyFromBase58(privateKey)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  client, err := searcher_client.New(
     jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
-    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
-	nil,
+    key,
+    nil,
   )
   if err != nil {
     log.Fatal(err)
   }
 
+  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+  defer cancel()
+
   // max per bundle is 5 transactions
   txns := make([]*solana.Transaction, 0, 5)
 
-  block, err := client.RpcConn.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
+  block, err := client.RpcConn.GetRecentBlockhash(context.Background(), rpc.CommitmentFinalized)
   if err != nil {
     log.Fatal(err)
   }
@@ -145,7 +170,7 @@ func main() {
 
   txns = append(txns, tx)
 
-  resp, err := client.BroadcastBundleWithConfirmation(txns, 100)
+  resp, err := client.BroadcastBundleWithConfirmation(ctx, txns)
   if err != nil {
     log.Fatal(err)
   }
@@ -158,20 +183,40 @@ func main() {
 package main
 
 import (
-	"context"
-    "github.com/gagliardetto/solana-go"
-    "github.com/gagliardetto/solana-go/rpc"
-    "github.com/weeaa/jito-go"
-    "github.com/weeaa/jito-go/clients/searcher_client"
-    "log"
-    "os"
+  "context"
+  "github.com/gagliardetto/solana-go/rpc"
+  "github.com/joho/godotenv"
+  "github.com/weeaa/jito-go"
+  "github.com/weeaa/jito-go/clients/searcher_client"
+  "log"
+  "os"
 )
 
 func main() {
-  client, err := searcher_client.NewSearcherClient(
+  if err := godotenv.Load(); err != nil {
+    log.Fatal(err)
+  }
+
+  rpcAddr, ok := os.LookupEnv("JITO_RPC")
+  if !ok {
+    log.Fatal("JITO_RPC could not be found in .env")
+  }
+
+  privateKey, ok := os.LookupEnv("PRIVATE_KEY")
+  if !ok {
+    log.Fatal("PRIVATE_KEY could not be found in .env")
+  }
+
+  key, err := solana.PrivateKeyFromBase58(privateKey)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  client, err := searcher_client.New(
     jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
-    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
+    key,
     nil,
   )
   if err != nil {
@@ -189,7 +234,7 @@ func main() {
   }
 
   payload := &searcher_client.SubscribeAccountsMempoolTransactionsPayload{
-    Ctx:      context.TODO(),
+    Ctx:      context.Background(),
     Accounts: accounts,
     Regions:  regions,
     TxCh:     make(chan *solana.Transaction),
@@ -220,11 +265,31 @@ import (
 )
 
 func main() {
-  client, err := searcher_client.NewSearcherClient(
+  if err := godotenv.Load(); err != nil {
+    log.Fatal(err)
+  }
+
+  rpcAddr, ok := os.LookupEnv("JITO_RPC")
+  if !ok {
+    log.Fatal("JITO_RPC could not be found in .env")
+  }
+
+  privateKey, ok := os.LookupEnv("PRIVATE_KEY")
+  if !ok {
+    log.Fatal("PRIVATE_KEY could not be found in .env")
+  }
+
+  key, err := solana.PrivateKeyFromBase58(privateKey)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  client, err := searcher_client.New(
     jito_go.NewYork.BlockEngineURL,
+    rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
-    solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY")),
-	nil,
+    key,
+    nil,
   )
   if err != nil {
     log.Fatal(err)
@@ -254,7 +319,7 @@ func main() {
 	rpcAddr := "myGeyserRpcNodeURL"
 	
 	// establish conn to geyser node...
-	client, err := geyser_client.NewGeyserClient(context.Background(), rpcAddr, nil)
+	client, err := geyser_client.New(context.Background(), rpcAddr, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -275,7 +340,6 @@ func main() {
 		log.Println(block)
 	}
 }
-
 ```
 ## 🚨 Disclaimer
 

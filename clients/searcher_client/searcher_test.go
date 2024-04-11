@@ -23,6 +23,9 @@ func TestMain(m *testing.M) {
 }
 
 func Test_SearcherClient(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
 	if !assert.True(t, ok, "getting PRIVATE_KEY from .env") {
 		t.FailNow()
@@ -36,6 +39,7 @@ func Test_SearcherClient(t *testing.T) {
 	client, err := New(
 		jito_go.NewYork.BlockEngineURL,
 		rpc.New(rpcAddr),
+		rpc.New(rpc.MainNetBeta_RPC),
 		solana.MustPrivateKeyFromBase58(privKey),
 		nil,
 	)
@@ -78,26 +82,15 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
-		//t.Skip("skipping test due to rpc method being disabled")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		_ = ctx
-
+		t.Skip("skipping test due to rpc method being disabled")
 	})
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
-		//t.Skip("skipping test due to rpc method being disabled")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
 		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
 
 		payload := &SubscribeAccountsMempoolTransactionsPayload{
-			Ctx:      context.Background(),
+			Ctx:      ctx,
 			Accounts: []string{USDC, PENG},
 			Regions:  regions,
 			TxCh:     make(chan *solana.Transaction),
@@ -148,7 +141,7 @@ func Test_SearcherClient(t *testing.T) {
 		var blockHash *rpc.GetRecentBlockhashResult
 		var tx *solana.Transaction
 
-		blockHash, err = client.RpcConn.GetRecentBlockhash(context.Background(), rpc.CommitmentConfirmed)
+		blockHash, err = client.RpcConn.GetRecentBlockhash(ctx, rpc.CommitmentConfirmed)
 		if !assert.NoError(t, err, "getting recent block hash from RPC") {
 			t.FailNow()
 		}
@@ -181,7 +174,7 @@ func Test_SearcherClient(t *testing.T) {
 		}
 
 		_, err = client.SimulateBundle(
-			context.Background(),
+			ctx,
 			SimulateBundleParams{
 				EncodedTransactions: []string{tx.MustToBase64()},
 			},

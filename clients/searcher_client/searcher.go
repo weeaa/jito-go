@@ -17,8 +17,9 @@ import (
 )
 
 type Client struct {
-	GrpcConn *grpc.ClientConn
-	RpcConn  *rpc.Client
+	GrpcConn    *grpc.ClientConn
+	RpcConn     *rpc.Client
+	JitoRpcConn *rpc.Client
 
 	SearcherService       proto.SearcherServiceClient
 	SubscribeBundleStream proto.SearcherService_SubscribeBundleResultsClient
@@ -29,7 +30,7 @@ type Client struct {
 }
 
 // New creates a new Searcher Client instance.
-func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+func New(grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -55,6 +56,7 @@ func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey
 	return &Client{
 		GrpcConn:              conn,
 		RpcConn:               rpcClient,
+		JitoRpcConn:           jitoRpcClient,
 		SearcherService:       searcherService,
 		SubscribeBundleStream: subBundleRes,
 		Auth:                  authService,
@@ -365,7 +367,7 @@ func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundle
 		return nil, errors.New("pre/post execution account config length must match bundle length")
 	}
 
-	err := c.RpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
+	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
 	return out, err
 }
 

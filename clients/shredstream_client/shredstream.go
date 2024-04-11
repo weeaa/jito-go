@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type Client struct {
+type client struct {
 	GrpcConn *grpc.ClientConn
 	RpcConn  *rpc.Client
 
@@ -20,7 +20,8 @@ type Client struct {
 	Auth *pkg.AuthenticationService
 }
 
-func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+// disabled until fully working :)
+func new(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -38,7 +39,7 @@ func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey
 		return nil, err
 	}
 
-	return &Client{
+	return &client{
 		GrpcConn:          conn,
 		RpcConn:           rpcClient,
 		ShredstreamClient: shredstreamService,
@@ -46,6 +47,6 @@ func New(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey
 	}, nil
 }
 
-func (c *Client) SendHeartbeat(count uint64, opts ...grpc.CallOption) (*proto.HeartbeatResponse, error) {
+func (c *client) SendHeartbeat(count uint64, opts ...grpc.CallOption) (*proto.HeartbeatResponse, error) {
 	return c.ShredstreamClient.SendHeartbeat(c.Auth.GrpcCtx, &proto.Heartbeat{Count: count}, opts...)
 }

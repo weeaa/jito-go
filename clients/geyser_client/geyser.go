@@ -27,7 +27,7 @@ func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ..
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +43,14 @@ func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ..
 }
 
 func (c *Client) SubscribePartialAccountUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribePartialAccountUpdatesClient, error) {
-	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{}, opts...)
+	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{SkipVoteAccounts: true}, opts...)
 }
 
-func (c *Client) OnPartialAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribePartialAccountUpdatesClient, ch chan *proto.PartialAccountUpdate) {
+func (c *Client) OnPartialAccountUpdates(sub proto.Geyser_SubscribePartialAccountUpdatesClient, ch chan *proto.PartialAccountUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
@@ -68,11 +68,11 @@ func (c *Client) SubscribeBlockUpdates(opts ...grpc.CallOption) (proto.Geyser_Su
 	return c.Geyser.SubscribeBlockUpdates(c.Ctx, &proto.SubscribeBlockUpdatesRequest{}, opts...)
 }
 
-func (c *Client) OnBlockUpdates(ctx context.Context, sub proto.Geyser_SubscribeBlockUpdatesClient, ch chan *proto.BlockUpdate) {
+func (c *Client) OnBlockUpdates(sub proto.Geyser_SubscribeBlockUpdatesClient, ch chan *proto.BlockUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
@@ -90,11 +90,11 @@ func (c *Client) SubscribeAccountUpdates(accounts []string, opts ...grpc.CallOpt
 	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)}, opts...)
 }
 
-func (c *Client) OnAccountUpdates(ctx context.Context, sub proto.Geyser_SubscribeAccountUpdatesClient, ch chan *proto.AccountUpdate) {
+func (c *Client) OnAccountUpdates(sub proto.Geyser_SubscribeAccountUpdatesClient, ch chan *proto.AccountUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
@@ -112,11 +112,11 @@ func (c *Client) SubscribeProgramUpdates(programs []string, opts ...grpc.CallOpt
 	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)}, opts...)
 }
 
-func (c *Client) OnProgramUpdate(ctx context.Context, sub proto.Geyser_SubscribeProgramUpdatesClient, ch chan *proto.AccountUpdate) {
+func (c *Client) OnProgramUpdate(sub proto.Geyser_SubscribeProgramUpdatesClient, ch chan *proto.AccountUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
@@ -134,11 +134,11 @@ func (c *Client) SubscribeTransactionUpdates(opts ...grpc.CallOption) (proto.Gey
 	return c.Geyser.SubscribeTransactionUpdates(c.Ctx, &proto.SubscribeTransactionUpdatesRequest{}, opts...)
 }
 
-func (c *Client) OnTransactionUpdates(ctx context.Context, sub proto.Geyser_SubscribeTransactionUpdatesClient, ch chan *proto.TransactionUpdate) {
+func (c *Client) OnTransactionUpdates(sub proto.Geyser_SubscribeTransactionUpdatesClient, ch chan *proto.TransactionUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
@@ -156,11 +156,11 @@ func (c *Client) SubscribeSlotUpdates(opts ...grpc.CallOption) (proto.Geyser_Sub
 	return c.Geyser.SubscribeSlotUpdates(c.Ctx, &proto.SubscribeSlotUpdateRequest{}, opts...)
 }
 
-func (c *Client) OnSlotUpdates(ctx context.Context, sub proto.Geyser_SubscribeSlotUpdatesClient, ch chan *proto.SlotUpdate) {
+func (c *Client) OnSlotUpdates(sub proto.Geyser_SubscribeSlotUpdatesClient, ch chan *proto.SlotUpdate) {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -18,13 +19,20 @@ func TestMain(m *testing.M) {
 }
 
 func Test_GeyserClient(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
 	rpcAddr, ok := os.LookupEnv("GEYSER_RPC")
 	if !assert.True(t, ok, "getting GEYSER_RPC from .env") {
 		t.FailNow()
 	}
 
+	if !assert.NotEqualf(t, "", rpcAddr, "GEYSER_RPC shouldn't be equal to [%s]", rpcAddr) {
+		t.FailNow()
+	}
+
 	client, err := New(
-		context.Background(),
+		ctx,
 		rpcAddr,
 		nil,
 	)
@@ -32,9 +40,9 @@ func Test_GeyserClient(t *testing.T) {
 		t.FailNow()
 	}
 
+	// ion have a Geyser RPC although USDC program should work for both, if not lmk :)
 	accounts := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
 	programs := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
-	ctx := context.Background()
 
 	t.Run("SubscribeBlockUpdates", func(t *testing.T) {
 		var sub proto.Geyser_SubscribeBlockUpdatesClient
@@ -44,7 +52,7 @@ func Test_GeyserClient(t *testing.T) {
 		}
 
 		ch := make(chan *proto.BlockUpdate)
-		client.OnBlockUpdates(ctx, sub, ch)
+		client.OnBlockUpdates(sub, ch)
 
 		block := <-ch
 		assert.NotNil(t, block.BlockHeight)
