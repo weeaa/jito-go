@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"math/big"
 	"math/rand"
+	"time"
 )
 
 type Client struct {
@@ -267,14 +268,35 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 				return nil, err
 			}
 
+			//loop get statuses, The timeout is 15 seconds
+			start := time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
-			statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
-			if err != nil {
-				return nil, err
-			}
+			for {
+				statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
+				if err != nil {
+					return nil, err
+				}
+				allNotNil := true
 
+				for _, status := range statuses.Value {
+					if status == nil {
+						allNotNil = false
+						break
+					}
+				}
+
+				if allNotNil {
+					break
+				}
+
+				if time.Since(start) > 15*time.Second {
+					return nil, errors.New("operation timed out after 15 seconds")
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
 			for _, status := range statuses.Value {
-				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed {
+				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed && status.ConfirmationStatus != rpc.ConfirmationStatusConfirmed {
 					return nil, errors.New("searcher service did not provide bundle status in time")
 				}
 			}
