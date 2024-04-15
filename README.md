@@ -86,6 +86,7 @@ package main
 
 import (
   "context"
+  "github.com/davecgh/go-spew/spew"
   "github.com/gagliardetto/solana-go"
   "github.com/gagliardetto/solana-go/programs/system"
   "github.com/gagliardetto/solana-go/rpc"
@@ -128,7 +129,7 @@ func main() {
     log.Fatal(err)
   }
 
-  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+  ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
   defer cancel()
 
   // max per bundle is 5 transactions
@@ -139,16 +140,23 @@ func main() {
     log.Fatal(err)
   }
 
+  // change w ur keys =)
   from := solana.MustPrivateKeyFromBase58("Tq5gFBU4QG6b6aUYAwi87CUx64iy5tZT1J6nuphN4FXov3UZahMYGSbxLGhb8a9UZ1VvxWB4NzDavSzTorqKCio")
   to := solana.MustPublicKeyFromBase58("BLrQPbKruZgFkNhpdGGrJcZdt1HnfrBLojLYYgnrwNrz")
+
+  tipInst, err := client.GenerateTipRandomAccountInstruction(1000000, from.PublicKey())
+  if err != nil {
+    log.Fatal(err)
+  }
 
   tx, err := solana.NewTransaction(
     []solana.Instruction{
       system.NewTransferInstruction(
-        10000,
+        10000000,
         from.PublicKey(),
         to,
       ).Build(),
+      tipInst,
     },
     block.Value.Blockhash,
     solana.TransactionPayer(from.PublicKey()),
@@ -167,6 +175,9 @@ func main() {
   ); err != nil {
     log.Fatal(err)
   }
+
+  // debug print
+  spew.Dump(tx)
 
   txns = append(txns, tx)
 

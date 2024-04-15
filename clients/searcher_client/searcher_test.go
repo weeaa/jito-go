@@ -146,13 +146,20 @@ func Test_SearcherClient(t *testing.T) {
 			t.FailNow()
 		}
 
+		var tipInst solana.Instruction
+		tipInst, err = client.GenerateTipRandomAccountInstruction(1000000, fundedWallet.PublicKey())
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
 		tx, err = solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
-					10000,
+					10000000,
 					fundedWallet.PublicKey(),
 					solana.MustPublicKeyFromBase58("A6njahNqC6qKde6YtbHdr1MZsB5KY9aKfzTY1cj8jU3v"),
 				).Build(),
+				tipInst,
 			},
 			blockHash.Value.Blockhash,
 			solana.TransactionPayer(fundedWallet.PublicKey()),

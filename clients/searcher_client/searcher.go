@@ -244,7 +244,7 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}}, opts...)
 }
 
-// BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito and waits for its confirmation.
+// BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
 func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
 
@@ -268,24 +268,24 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 				return nil, err
 			}
 
-			//loop get statuses, The timeout is 15 seconds
-			start := time.Now()
+			var start = time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
+
 			for {
 				statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
 				if err != nil {
 					return nil, err
 				}
-				allNotNil := true
+				ready := true
 
 				for _, status := range statuses.Value {
 					if status == nil {
-						allNotNil = false
+						ready = false
 						break
 					}
 				}
 
-				if allNotNil {
+				if ready {
 					break
 				}
 
@@ -295,6 +295,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 					time.Sleep(1 * time.Second)
 				}
 			}
+
 			for _, status := range statuses.Value {
 				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed && status.ConfirmationStatus != rpc.ConfirmationStatusConfirmed {
 					return nil, errors.New("searcher service did not provide bundle status in time")
@@ -402,11 +403,12 @@ func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bund
 	return &proto.Bundle{Packets: packets, Header: nil}, nil
 }
 
-// GenerateTipInstruction is a function that generates a Solana tip instruction.
+// GenerateTipInstruction is a function that generates a Solana tip instruction mandatory to broadcast a bundle to Jito.
 func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
 	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()
 }
 
+// GenerateTipRandomAccountInstruction functions similarly to GenerateTipInstruction, but it selects a random tip account.
 func (c *Client) GenerateTipRandomAccountInstruction(tipAmount uint64, from solana.PublicKey) (solana.Instruction, error) {
 	tipAccount, err := c.GetRandomTipAccount()
 	if err != nil {
