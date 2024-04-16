@@ -5,6 +5,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"time"
+
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -12,9 +16,6 @@ import (
 	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"math/big"
-	"math/rand"
-	"time"
 )
 
 type Client struct {
@@ -49,7 +50,7 @@ func New(grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey so
 		return nil, err
 	}
 
-	subBundleRes, err := searcherService.SubscribeBundleResults(context.Background(), &proto.SubscribeBundleResultsRequest{})
+	subBundleRes, err := searcherService.SubscribeBundleResults(authService.GrpcCtx, &proto.SubscribeBundleResultsRequest{})
 	if err != nil {
 		return nil, err
 	}
