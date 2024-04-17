@@ -254,11 +254,16 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 		return nil, err
 	}
 
-	for {
+	retries := 5
+	for i := 0; i < retries; i++ {
 		select {
 		case <-c.Auth.GrpcCtx.Done():
 			return nil, c.Auth.GrpcCtx.Err()
 		default:
+
+			// waiting 5s to check bundle result
+			time.Sleep(5 * time.Second)
+
 			var bundleResult *proto.BundleResult
 			bundleResult, err = c.SubscribeBundleStream.Recv()
 			if err != nil {
@@ -306,6 +311,8 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 			return resp, nil
 		}
 	}
+
+	return nil, fmt.Errorf("error waiting for max retries exceeded")
 }
 
 func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
