@@ -54,6 +54,16 @@ func Test_SearcherClient(t *testing.T) {
 		jito_go.Tokyo.Region,
 	}
 
+	bundles := []string{
+		"fc5f0b63c8a2e75193394311d7063e904ce4cf31a63ad6c5809277c1a68ec935",
+		"d3925b4f9c6dc5112b89d07c854d55f6c52c2a528ff85a42bc3be9e91a80f290",
+		"bdf8b0e5cad979ed71c40fe1a6b8d2589cc046d96fc43ff020a98c6b732b9ae9",
+		"3821951e175b8186dfe0fbf05b15837edd1538659692721cea8c27368670859b",
+		"e41a99b23554f26bc1c85552e027fe7ad95133c6a741a4920b6442f1e6f98ca7",
+		"a20fc66cf0155f2c803d1f37bab54775a9110840e21d50369d8196886df97798",
+		"52c0375ca1acee04d697faf2abe5d7e499856fcc15457673cba8c5e0673f398b",
+	}
+
 	t.Run("GetRegions", func(t *testing.T) {
 		var resp *proto.GetRegionsResponse
 		resp, err = client.GetRegions()
@@ -86,6 +96,7 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
+		t.Skip("skipping test due to rpc method being disabled")
 		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
 
@@ -188,5 +199,33 @@ func Test_SearcherClient(t *testing.T) {
 			config,
 		)
 		assert.NoError(t, err, "simulating bundle")
+	})
+
+	t.Run("GetBundleStatuses_Client", func(t *testing.T) {
+		_, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+	})
+
+	t.Run("BatchGetBundleStatuses_Client", func(t *testing.T) {
+		_, err := client.BatchGetBundleStatuses(ctx, bundles...)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+	})
+
+	t.Run("GetBundleStatuses_Http", func(t *testing.T) {
+		_, err := GetBundleStatuses([]string{bundles[0]})
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+	})
+
+	t.Run("BatchGetBundleStatuses_Http", func(t *testing.T) {
+		_, err := BatchGetBundleStatuses(bundles...)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
 	})
 }

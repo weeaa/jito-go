@@ -1,12 +1,17 @@
 package searcher_client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -17,6 +22,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+var jitoURL = &url.URL{
+	Scheme: "https",
+	Host:   "mainnet.block-engine.jito.wtf",
+	Path:   "/api/v1/bundles",
+}
 
 type Client struct {
 	GrpcConn    *grpc.ClientConn
@@ -29,6 +40,68 @@ type Client struct {
 	Auth *pkg.AuthenticationService
 
 	ErrChan chan error
+}
+
+type SubscribeAccountsMempoolTransactionsPayload struct {
+	Ctx      context.Context
+	Accounts []string
+	Regions  []string
+	TxCh     chan *solana.Transaction
+	ErrCh    chan error
+}
+
+type SubscribeProgramsMempoolTransactionsPayload struct {
+	Ctx      context.Context
+	Accounts []string
+	Regions  []string
+	TxCh     chan *solana.Transaction
+	ErrCh    chan error
+}
+
+type SimulateBundleConfig struct {
+	PreExecutionAccountsConfigs  []ExecutionAccounts `json:"preExecutionAccountsConfigs"`
+	PostExecutionAccountsConfigs []ExecutionAccounts `json:"postExecutionAccountsConfigs"`
+}
+
+type ExecutionAccounts struct {
+	Encoding  string   `json:"encoding"`
+	Addresses []string `json:"addresses"`
+}
+
+type SimulateBundleParams struct {
+	EncodedTransactions []string `json:"encodedTransactions"`
+}
+
+type SimulatedBundleResponse struct {
+	Context interface{}                   `json:"context"`
+	Value   SimulatedBundleResponseStruct `json:"value"`
+}
+
+type SimulatedBundleResponseStruct struct {
+	Summary           interface{}         `json:"summary"`
+	TransactionResult []TransactionResult `json:"transactionResults"`
+}
+
+type TransactionResult struct {
+	Err                   interface{} `json:"err,omitempty"`
+	Logs                  []string    `json:"logs,omitempty"`
+	PreExecutionAccounts  []Account   `json:"preExecutionAccounts,omitempty"`
+	PostExecutionAccounts []Account   `json:"postExecutionAccounts,omitempty"`
+	UnitsConsumed         *int        `json:"unitsConsumed,omitempty"`
+	ReturnData            *ReturnData `json:"returnData,omitempty"`
+}
+
+type Account struct {
+	Executable bool     `json:"executable"`
+	Owner      string   `json:"owner"`
+	Lamports   int      `json:"lamports"`
+	Data       []string `json:"data"`
+	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
+}
+
+type ReturnData struct {
+	ProgramId string    `json:"programId"`
+	Data      [2]string `json:"data"`
 }
 
 // New creates a new Searcher Client instance.
@@ -88,22 +161,6 @@ func (c *Client) NewMempoolStreamProgram(programs, regions []string) (proto.Sear
 		},
 		Regions: regions,
 	})
-}
-
-type SubscribeAccountsMempoolTransactionsPayload struct {
-	Ctx      context.Context
-	Accounts []string
-	Regions  []string
-	TxCh     chan *solana.Transaction
-	ErrCh    chan error
-}
-
-type SubscribeProgramsMempoolTransactionsPayload struct {
-	Ctx      context.Context
-	Accounts []string
-	Regions  []string
-	TxCh     chan *solana.Transaction
-	ErrCh    chan error
 }
 
 // SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
@@ -344,52 +401,6 @@ func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
 	return nil
 }
 
-type SimulateBundleConfig struct {
-	PreExecutionAccountsConfigs  []ExecutionAccounts `json:"preExecutionAccountsConfigs"`
-	PostExecutionAccountsConfigs []ExecutionAccounts `json:"postExecutionAccountsConfigs"`
-}
-
-type ExecutionAccounts struct {
-	Encoding  string   `json:"encoding"`
-	Addresses []string `json:"addresses"`
-}
-
-type SimulateBundleParams struct {
-	EncodedTransactions []string `json:"encodedTransactions"`
-}
-
-type SimulatedBundleResponse struct {
-	Context interface{}                   `json:"context"`
-	Value   SimulatedBundleResponseStruct `json:"value"`
-}
-
-type SimulatedBundleResponseStruct struct {
-	Summary           interface{}         `json:"summary"`
-	TransactionResult []TransactionResult `json:"transactionResults"`
-}
-
-type TransactionResult struct {
-	Err                   interface{} `json:"err,omitempty"`
-	Logs                  []string    `json:"logs,omitempty"`
-	PreExecutionAccounts  []Account   `json:"preExecutionAccounts,omitempty"`
-	PostExecutionAccounts []Account   `json:"postExecutionAccounts,omitempty"`
-	UnitsConsumed         *int        `json:"unitsConsumed,omitempty"`
-	ReturnData            *ReturnData `json:"returnData,omitempty"`
-}
-
-type Account struct {
-	Executable bool     `json:"executable"`
-	Owner      string   `json:"owner"`
-	Lamports   int      `json:"lamports"`
-	Data       []string `json:"data"`
-	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
-}
-
-type ReturnData struct {
-	ProgramId string    `json:"programId"`
-	Data      [2]string `json:"data"`
-}
-
 // SimulateBundle is an RPC method that simulates a Jito bundle – exclusively available to Jito-Solana validator.
 func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
 	out := new(SimulatedBundleResponse)
@@ -400,6 +411,164 @@ func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundle
 
 	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
 	return out, err
+}
+
+type BundleStatusesResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  struct {
+		Context struct {
+			Slot int `json:"slot"`
+		} `json:"context"`
+		Value []struct {
+			BundleId           string   `json:"bundle_id"`
+			Transactions       []string `json:"transactions"`
+			Slot               int      `json:"slot"`
+			ConfirmationStatus string   `json:"confirmation_status"`
+			Err                struct {
+				Ok interface{} `json:"Ok"`
+			} `json:"err"`
+		} `json:"value"`
+	} `json:"result"`
+	Id int `json:"id"`
+}
+
+func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*BundleStatusesResponse, error) {
+	out := new(BundleStatusesResponse)
+
+	if len(bundleIDs) > 5 {
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses", len(bundleIDs))
+	}
+
+	var params []interface{}
+	for _, bundleID := range bundleIDs {
+		params = append(params, bundleID)
+	}
+
+	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "getBundleStatuses", params)
+	return out, err
+}
+
+func (c *Client) BatchGetBundleStatuses(ctx context.Context, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
+	if len(bundleIDs) > 5 {
+		var bundles [][]string
+		var out []*BundleStatusesResponse
+
+		for _, bundleID := range bundleIDs {
+			if len(bundles) == 0 || len(bundles[len(bundles)-1]) == 5 {
+				bundles = append(bundles, []string{bundleID})
+			} else {
+				bundles[len(bundles)-1] = append(bundles[len(bundles)-1], bundleID)
+			}
+		}
+
+		for _, bundle := range bundles {
+			resp, err := c.GetBundleStatuses(ctx, bundle)
+			if err != nil {
+				return out, err
+			}
+
+			out = append(out, resp)
+		}
+
+		return out, nil
+	} else {
+		var out []*BundleStatusesResponse
+
+		resp, err := c.GetBundleStatuses(ctx, bundleIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, resp)
+
+		return out, nil
+	}
+}
+
+func GetBundleStatuses(bundleIDs []string) (*BundleStatusesResponse, error) {
+
+	if len(bundleIDs) > 5 {
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses", len(bundleIDs))
+	}
+
+	buf := new(bytes.Buffer)
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "getBundleStatuses",
+		"params": [][]string{
+			bundleIDs,
+		},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    jitoURL,
+		Body:   io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errors.New("error performing GetBundleStatuses: client error")
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	data := new(BundleStatusesResponse)
+	if err = json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func BatchGetBundleStatuses(bundleIDs ...string) ([]*BundleStatusesResponse, error) {
+	if len(bundleIDs) > 5 {
+		var bundles [][]string
+		var out []*BundleStatusesResponse
+
+		for _, bundleID := range bundleIDs {
+			if len(bundles) == 0 || len(bundles[len(bundles)-1]) == 5 {
+				bundles = append(bundles, []string{bundleID})
+			} else {
+				bundles[len(bundles)-1] = append(bundles[len(bundles)-1], bundleID)
+			}
+		}
+
+		for _, bundle := range bundles {
+			resp, err := GetBundleStatuses(bundle)
+			if err != nil {
+				return out, err
+			}
+
+			out = append(out, resp)
+		}
+
+		return out, nil
+	} else {
+		var out []*BundleStatusesResponse
+
+		resp, err := GetBundleStatuses(bundleIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, resp)
+
+		return out, nil
+	}
 }
 
 func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bundle, error) {

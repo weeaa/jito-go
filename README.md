@@ -5,13 +5,12 @@
 
 This library contains tooling to interact with **[Jito Labs](https://www.jito.wtf/)** MEV software. ⚠️ Work in progress. ⚠️
 
-PRs and contributions are welcome.
+We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana-go) to interact with Solana.  PRs and contributions are welcome.
 
 ![jitolabs](https://github.com/weeaa/jito-go/assets/108926252/5751416c-333b-412e-8f3f-f26b2839be98)
 
 ## ❇️ Contents
 - [Features](#-features)
-- [Installing](#-installing)
 - [RPC Methods](#-rpc-methods)
 - [Installing](#-installing)
 - [Keypair Authentication](#-keypair-authentication)
@@ -41,6 +40,7 @@ PRs and contributions are welcome.
   - `SendBundle`
   - `SendBundleWithConfirmation`
   - `SubscribeBundleResults`
+  - `GetBundleStatuses` (gRPC & HTTP)
 - [x] **Block Engine**
   - Validator
     - `SubscribePackets`
