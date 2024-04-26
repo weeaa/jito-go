@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/weeaa/jito-go"
 	"github.com/weeaa/jito-go/proto"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,6 +38,7 @@ func Test_SearcherClient(t *testing.T) {
 	}
 
 	client, err := New(
+		ctx,
 		jito_go.NewYork.BlockEngineURL,
 		rpc.New(rpcAddr),
 		rpc.New(rpc.MainNetBeta_RPC),
@@ -45,6 +47,10 @@ func Test_SearcherClient(t *testing.T) {
 	)
 	if !assert.NoError(t, err) {
 		t.FailNow()
+	}
+
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
 	}
 
 	regions := []string{
@@ -93,22 +99,31 @@ func Test_SearcherClient(t *testing.T) {
 
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
-	})
 
-	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
-		t.Skip("skipping test due to rpc method being disabled")
-		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
-
-		payload := &SubscribeAccountsMempoolTransactionsPayload{
-			Ctx:      ctx,
-			Accounts: []string{USDC, PENG},
-			Regions:  regions,
-			TxCh:     make(chan *solana.Transaction),
-			ErrCh:    make(chan error),
+		accounts := []string{
+			"GSE6vfr6vws493G22jfwCU6Zawh3dfvSYXYQqKhFsBwe",
+			"xxxxxxqSkjrSvY1igNYjwcw5f9QskeLRKYEmJ1MezhB",
+			"93WbteZH6nrWeHd5JT6mJE5VHbWcCTDZzzqqnpZ98V9G",
+			"FSHZdx73rEGcS5JXUXvW6h8i4AtsrfPTHcgcbXLVUD3A",
+			"Ez2U27TRScksd6q7xoVgX44gX9HAjviN2cdKAL3cFBFE",
+			"EAHJNfFDtivTMzKMNXzwAF9RTAeTd4aEYVwLjCiQWY1E",
+			"AeF3qRpn7DDuRjHhWmyqmZuZGguHXjsNYCzmNv2ZcuMQ",
+			"4CX53LQNwFs3tyRFfwkMxsPV8daao1zCiGQjMMAkKSqx",
+			"EePnRqV4Q2VEHp5nPADqeGKcfPMFmnhDW1Ln9LKsTzWQ",
+			"6WkVGG2vaKcpgsf5dEYHunZRQHHjZWEUfkWiGxtBGnNg",
+			"EMtQTumnZYnv7NSZNGr9WpSSMahkvmNeo9hjhbB9gqFR",
+			"4SkEmhCEdLbJxKk6iFzCJ4eR1rLQGHRTs3q8i2PHLbq8",
+			"HhuJCViqUewRNXrhwNuXCC7gqp2o1cUhx9a3nqEGkkqt",
+			"364kNi4LbCh8iDuNvmbHbPML4N3xbg6msZnaj5dFSJbL",
+			"nJMeypdLT1FfSkzNrdCZnVk5HXKiMNRcgCB9Hj554zu",
+			"HGEj9nJHdAWJKMHGGHRnhvb3i1XakELSRTn5B4otmAhU",
+			"DcpYXJsWBgkV6kck4a7cWBg6B4epPeFRCMZJjxudGKh4",
+			"6nsC3UXTCpHq4tXZ1GEeVPg28B9NF8UV4G14dpm9WCUb",
+			"B4WGtoLYuF4bF5QUjsnSLFYJVrRhNs8N2NqKqojxxKs8",
+			"4sUfdLGg4txSZJdfTkihKLNbM7Xx8WyCmmNqmXc65fjY",
 		}
 
-		err = client.SubscribeAccountsMempoolTransactions(payload)
+		txCh, errCh, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -116,9 +131,37 @@ func Test_SearcherClient(t *testing.T) {
 		for {
 			select {
 			case <-ctx.Done():
-				t.Fatal()
+				t.Fatal(ctx.Err())
+			case <-errCh:
+				t.Fatal(err)
 			default:
-				tx := <-payload.TxCh
+				tx := <-txCh
+				assert.NotNil(t, tx)
+				break
+			}
+		}
+	})
+
+	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
+		t.Skip("skipping test due to rpc method being disabled")
+		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+
+		programs := []string{USDC, PENG}
+
+		txCh, errCh, err := client.SubscribeProgramsMempoolTransactions(ctx, programs, regions)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-errCh:
+				t.Fatal(err)
+			default:
+				tx := <-txCh
 				assert.NotNil(t, tx)
 				break
 			}
@@ -216,14 +259,14 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("GetBundleStatuses_Http", func(t *testing.T) {
-		_, err := GetBundleStatuses([]string{bundles[0]})
+		_, err := GetBundleStatuses(httpClient, []string{bundles[0]})
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 	})
 
 	t.Run("BatchGetBundleStatuses_Http", func(t *testing.T) {
-		_, err := BatchGetBundleStatuses(bundles...)
+		_, err := BatchGetBundleStatuses(httpClient, bundles...)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}

@@ -11,15 +11,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type client struct {
-	GrpcConn *grpc.ClientConn
-	RpcConn  *rpc.Client
-
-	ShredstreamClient proto.ShredstreamClient
-
-	Auth *pkg.AuthenticationService
-}
-
 // disabled until fully working :)
 func new(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*client, error) {
 	if tlsConfig != nil {
@@ -28,7 +19,8 @@ func new(grpcDialURL string, rpcClient *rpc.Client, privateKey solana.PrivateKey
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
+	chErr := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), chErr, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}

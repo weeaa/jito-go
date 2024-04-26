@@ -1,17 +1,20 @@
 package blockengine_client
 
 import (
+	"context"
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
-	jito_go "github.com/weeaa/jito-go"
+	"github.com/weeaa/jito-go"
 	"github.com/weeaa/jito-go/proto"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
+
+// todo add more tests
 
 func TestMain(m *testing.M) {
 	_, filename, _, _ := runtime.Caller(0)
@@ -20,6 +23,9 @@ func TestMain(m *testing.M) {
 }
 
 func Test_BlockEngineRelayerClient(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
 	if !assert.True(t, ok, "getting PRIVATE_KEY from .env") {
 		t.FailNow()
@@ -29,22 +35,17 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 		t.FailNow()
 	}
 
-	rpcAddr, ok := os.LookupEnv("JITO_RPC")
-	if !assert.True(t, ok, "getting JITO_RPC from .env") {
-		t.FailNow()
-	}
-
-	if !assert.NotEqualf(t, "", rpcAddr, "JITO_RPC shouldn't be equal to [%s]", rpcAddr) {
-		t.FailNow()
-	}
-
-	rpcClient := rpc.New(rpcAddr)
 	privateKey, err := solana.PrivateKeyFromBase58(privKey)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	validator, err := NewValidator(jito_go.Amsterdam.BlockEngineURL, rpcClient, privateKey, nil)
+	validator, err := NewValidator(
+		ctx,
+		jito_go.Amsterdam.BlockEngineURL,
+		privateKey,
+		nil,
+	)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -93,23 +94,25 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 }
 
 func Test_BlockEngineValidatorClient(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
 	if !assert.True(t, ok, "getting PRIVATE_KEY from .env") {
 		t.FailNow()
 	}
 
-	rpcAddr, ok := os.LookupEnv("JITO_RPC")
-	if !assert.True(t, ok, "getting JITO_RPC from .env") {
-		t.FailNow()
-	}
-
-	rpcClient := rpc.New(rpcAddr)
 	privateKey, err := solana.PrivateKeyFromBase58(privKey)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	relayer, err := NewRelayer(jito_go.NewYork.RelayerURL, rpcClient, privateKey, nil)
+	relayer, err := NewRelayer(
+		ctx,
+		jito_go.NewYork.RelayerURL,
+		privateKey,
+		nil,
+	)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}

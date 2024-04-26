@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -23,96 +21,16 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var jitoURL = &url.URL{
-	Scheme: "https",
-	Host:   "mainnet.block-engine.jito.wtf",
-	Path:   "/api/v1/bundles",
-}
-
-type Client struct {
-	GrpcConn    *grpc.ClientConn
-	RpcConn     *rpc.Client
-	JitoRpcConn *rpc.Client
-
-	SearcherService       proto.SearcherServiceClient
-	SubscribeBundleStream proto.SearcherService_SubscribeBundleResultsClient
-
-	Auth *pkg.AuthenticationService
-
-	ErrChan chan error
-}
-
-type SubscribeAccountsMempoolTransactionsPayload struct {
-	Ctx      context.Context
-	Accounts []string
-	Regions  []string
-	TxCh     chan *solana.Transaction
-	ErrCh    chan error
-}
-
-type SubscribeProgramsMempoolTransactionsPayload struct {
-	Ctx      context.Context
-	Accounts []string
-	Regions  []string
-	TxCh     chan *solana.Transaction
-	ErrCh    chan error
-}
-
-type SimulateBundleConfig struct {
-	PreExecutionAccountsConfigs  []ExecutionAccounts `json:"preExecutionAccountsConfigs"`
-	PostExecutionAccountsConfigs []ExecutionAccounts `json:"postExecutionAccountsConfigs"`
-}
-
-type ExecutionAccounts struct {
-	Encoding  string   `json:"encoding"`
-	Addresses []string `json:"addresses"`
-}
-
-type SimulateBundleParams struct {
-	EncodedTransactions []string `json:"encodedTransactions"`
-}
-
-type SimulatedBundleResponse struct {
-	Context interface{}                   `json:"context"`
-	Value   SimulatedBundleResponseStruct `json:"value"`
-}
-
-type SimulatedBundleResponseStruct struct {
-	Summary           interface{}         `json:"summary"`
-	TransactionResult []TransactionResult `json:"transactionResults"`
-}
-
-type TransactionResult struct {
-	Err                   interface{} `json:"err,omitempty"`
-	Logs                  []string    `json:"logs,omitempty"`
-	PreExecutionAccounts  []Account   `json:"preExecutionAccounts,omitempty"`
-	PostExecutionAccounts []Account   `json:"postExecutionAccounts,omitempty"`
-	UnitsConsumed         *int        `json:"unitsConsumed,omitempty"`
-	ReturnData            *ReturnData `json:"returnData,omitempty"`
-}
-
-type Account struct {
-	Executable bool     `json:"executable"`
-	Owner      string   `json:"owner"`
-	Lamports   int      `json:"lamports"`
-	Data       []string `json:"data"`
-	RentEpoch  *big.Int `json:"rentEpoch,omitempty"`
-}
-
-type ReturnData struct {
-	ProgramId string    `json:"programId"`
-	Data      [2]string `json:"data"`
-}
-
 // New creates a new Searcher Client instance.
-func New(grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+func New(ctx context.Context, grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := pkg.CreateAndObserveGRPCConn(context.Background(), grpcDialURL, opts...)
+	chErr := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +47,13 @@ func New(grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey so
 	}
 
 	return &Client{
-		GrpcConn:              conn,
-		RpcConn:               rpcClient,
-		JitoRpcConn:           jitoRpcClient,
-		SearcherService:       searcherService,
-		SubscribeBundleStream: subBundleRes,
-		Auth:                  authService,
-		ErrChan:               make(chan error),
+		GrpcConn:                 conn,
+		RpcConn:                  rpcClient,
+		JitoRpcConn:              jitoRpcClient,
+		SearcherService:          searcherService,
+		BundleStreamSubscription: subBundleRes,
+		Auth:                     authService,
+		ErrChan:                  chErr,
 	}, nil
 }
 
@@ -164,30 +82,27 @@ func (c *Client) NewMempoolStreamProgram(programs, regions []string) (proto.Sear
 }
 
 // SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
-func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccountsMempoolTransactionsPayload) error {
-	sub, err := c.NewMempoolStreamAccount(payload.Accounts, payload.Regions)
+func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accounts, regions []string) (<-chan *solana.Transaction, <-chan error, error) {
+	sub, err := c.NewMempoolStreamAccount(accounts, regions)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
+	chTx := make(chan *solana.Transaction)
+	chErr := make(chan error)
+
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				if err = c.SubscribeAccountsMempoolTransactions(payload); err != nil {
-					payload.ErrCh <- fmt.Errorf("SubscribeAccountsMempoolTransactions: recovered from panic but unable to restart sub stream: %w", err)
-					return
-				}
-			}
-		}()
 		for {
 			select {
-			case <-payload.Ctx.Done():
+			case <-ctx.Done():
+				return
+			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
 				var receipt *proto.PendingTxNotification
 				receipt, err = sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to receive mempool notification: %w", err)
+					chErr <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to receive mempool notification: %w", err)
 					continue
 				}
 
@@ -196,45 +111,42 @@ func (c *Client) SubscribeAccountsMempoolTransactions(payload *SubscribeAccounts
 						var tx *solana.Transaction
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
-							c.ErrChan <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
+							chErr <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
 							return
 						}
 
-						payload.TxCh <- tx
+						chTx <- tx
 					}(transaction)
 				}
 			}
 		}
 	}()
 
-	return nil
+	return chTx, chErr, nil
 }
 
 // SubscribeProgramsMempoolTransactions subscribes to the mempool transactions of the provided programs.
-func (c *Client) SubscribeProgramsMempoolTransactions(payload *SubscribeProgramsMempoolTransactionsPayload) error {
-	sub, err := c.NewMempoolStreamProgram(payload.Accounts, payload.Regions)
+func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, programs, regions []string) (<-chan *solana.Transaction, <-chan error, error) {
+	sub, err := c.NewMempoolStreamProgram(programs, regions)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
+	chTx := make(chan *solana.Transaction)
+	chErr := make(chan error)
+
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				if err = c.SubscribeProgramsMempoolTransactions(payload); err != nil {
-					payload.ErrCh <- fmt.Errorf("SubscribeProgramsMempoolTransactions: recovered from panic but unable to restart sub stream: %w", err)
-					return
-				}
-			}
-		}()
 		for {
 			select {
-			case <-payload.Ctx.Done():
+			case <-ctx.Done():
+				return
+			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
 				var receipt *proto.PendingTxNotification
 				receipt, err = sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to receive mempool notification: %w", err)
+					chErr <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to receive mempool notification: %w", err)
 					continue
 				}
 
@@ -243,18 +155,18 @@ func (c *Client) SubscribeProgramsMempoolTransactions(payload *SubscribePrograms
 						var tx *solana.Transaction
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
-							c.ErrChan <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
+							chErr <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to convert protobuf packet to transaction: %w", err)
 							return
 						}
 
-						payload.TxCh <- tx
+						chTx <- tx
 					}(transaction)
 				}
 			}
 		}
 	}()
 
-	return nil
+	return chTx, chErr, nil
 }
 
 func (c *Client) GetRegions(opts ...grpc.CallOption) (*proto.GetRegionsResponse, error) {
@@ -294,12 +206,12 @@ func (c *Client) NewBundleSubscriptionResults(opts ...grpc.CallOption) (proto.Se
 
 // BroadcastBundle sends a bundle of transactions on chain thru Jito.
 func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
-	packets, err := assemblePackets(transactions)
+	bundle, err := c.AssembleBundle(transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: &proto.Bundle{Packets: packets, Header: nil}}, opts...)
+	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
@@ -322,7 +234,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 			time.Sleep(5 * time.Second)
 
 			var bundleResult *proto.BundleResult
-			bundleResult, err = c.SubscribeBundleStream.Recv()
+			bundleResult, err = c.BundleStreamSubscription.Recv()
 			if err != nil {
 				continue
 			}
@@ -369,7 +281,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 		}
 	}
 
-	return nil, fmt.Errorf("error waiting for max retries exceeded")
+	return nil, fmt.Errorf("BroadcastBundleWithConfirmation error: max retries exceeded")
 }
 
 func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
@@ -413,30 +325,9 @@ func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundle
 	return out, err
 }
 
-type BundleStatusesResponse struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Result  struct {
-		Context struct {
-			Slot int `json:"slot"`
-		} `json:"context"`
-		Value []struct {
-			BundleId           string   `json:"bundle_id"`
-			Transactions       []string `json:"transactions"`
-			Slot               int      `json:"slot"`
-			ConfirmationStatus string   `json:"confirmation_status"`
-			Err                struct {
-				Ok interface{} `json:"Ok"`
-			} `json:"err"`
-		} `json:"value"`
-	} `json:"result"`
-	Id int `json:"id"`
-}
-
 func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*BundleStatusesResponse, error) {
-	out := new(BundleStatusesResponse)
-
 	if len(bundleIDs) > 5 {
-		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses", len(bundleIDs))
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses  or reduce the amt of bundle", len(bundleIDs))
 	}
 
 	var params []interface{}
@@ -444,7 +335,9 @@ func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*Bu
 		params = append(params, bundleID)
 	}
 
+	out := new(BundleStatusesResponse)
 	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "getBundleStatuses", params)
+
 	return out, err
 }
 
@@ -485,10 +378,9 @@ func (c *Client) BatchGetBundleStatuses(ctx context.Context, bundleIDs ...string
 	}
 }
 
-func GetBundleStatuses(bundleIDs []string) (*BundleStatusesResponse, error) {
-
+func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
-		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses", len(bundleIDs))
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses or reduce the amt of bundle", len(bundleIDs))
 	}
 
 	buf := new(bytes.Buffer)
@@ -514,9 +406,9 @@ func GetBundleStatuses(bundleIDs []string) (*BundleStatusesResponse, error) {
 		},
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.New("error performing GetBundleStatuses: client error")
+		return nil, fmt.Errorf("error performing GetBundleStatuses: client error > %w", err)
 	}
 
 	defer resp.Body.Close()
@@ -527,14 +419,12 @@ func GetBundleStatuses(bundleIDs []string) (*BundleStatusesResponse, error) {
 	}
 
 	data := new(BundleStatusesResponse)
-	if err = json.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
+	err = json.Unmarshal(body, &data)
 
-	return data, nil
+	return data, err
 }
 
-func BatchGetBundleStatuses(bundleIDs ...string) ([]*BundleStatusesResponse, error) {
+func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
 		var bundles [][]string
 		var out []*BundleStatusesResponse
@@ -548,7 +438,7 @@ func BatchGetBundleStatuses(bundleIDs ...string) ([]*BundleStatusesResponse, err
 		}
 
 		for _, bundle := range bundles {
-			resp, err := GetBundleStatuses(bundle)
+			resp, err := GetBundleStatuses(client, bundle)
 			if err != nil {
 				return out, err
 			}
@@ -560,7 +450,7 @@ func BatchGetBundleStatuses(bundleIDs ...string) ([]*BundleStatusesResponse, err
 	} else {
 		var out []*BundleStatusesResponse
 
-		resp, err := GetBundleStatuses(bundleIDs)
+		resp, err := GetBundleStatuses(client, bundleIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -572,9 +462,16 @@ func BatchGetBundleStatuses(bundleIDs ...string) ([]*BundleStatusesResponse, err
 }
 
 func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bundle, error) {
-	packets, err := assemblePackets(transactions)
-	if err != nil {
-		return nil, err
+	packets := make([]*proto.Packet, 0, len(transactions))
+
+	// converts an array of transactions to an array of protobuf packets
+	for i, tx := range transactions {
+		packet, err := pkg.ConvertTransactionToProtobufPacket(tx)
+		if err != nil {
+			return nil, fmt.Errorf("%d: error converting tx to proto packet [%w]", i, err)
+		}
+
+		packets = append(packets, &packet)
 	}
 
 	return &proto.Bundle{Packets: packets, Header: nil}, nil
@@ -593,22 +490,6 @@ func (c *Client) GenerateTipRandomAccountInstruction(tipAmount uint64, from sola
 	}
 
 	return system.NewTransferInstruction(tipAmount, from, solana.MustPublicKeyFromBase58(tipAccount)).Build(), nil
-}
-
-// assemblePackets is a function that converts a slice of transactions to a slice of protobuf packets.
-func assemblePackets(transactions []*solana.Transaction) ([]*proto.Packet, error) {
-	packets := make([]*proto.Packet, 0, len(transactions))
-
-	for i, tx := range transactions {
-		packet, err := pkg.ConvertTransactionToProtobufPacket(tx)
-		if err != nil {
-			return nil, fmt.Errorf("%d: error converting tx to proto packet [%w]", i, err)
-		}
-
-		packets = append(packets, &packet)
-	}
-
-	return packets, nil
 }
 
 type BundleRejectionError struct {

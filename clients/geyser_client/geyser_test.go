@@ -45,17 +45,13 @@ func Test_GeyserClient(t *testing.T) {
 	programs := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
 
 	t.Run("SubscribeBlockUpdates", func(t *testing.T) {
-		var sub proto.Geyser_SubscribeBlockUpdatesClient
-		sub, err = client.SubscribeBlockUpdates()
+		sub, _, err := client.OnBlockUpdates(ctx)
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		ch := make(chan *proto.BlockUpdate)
-		client.OnBlockUpdates(sub, ch)
-
-		block := <-ch
-		assert.NotNil(t, block.BlockHeight)
+		block := <-sub
+		assert.NotNil(t, block.BlockUpdate.BlockHeight)
 	})
 
 	t.Run("SubscribePartialAccountUpdates", func(t *testing.T) {

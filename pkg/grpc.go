@@ -8,7 +8,7 @@ import (
 )
 
 // CreateAndObserveGRPCConn creates a new gRPC connection and observes its conn status.
-func CreateAndObserveGRPCConn(ctx context.Context, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func CreateAndObserveGRPCConn(ctx context.Context, chErr chan error, target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	conn, err := grpc.NewClient(target, opts...)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,9 @@ func CreateAndObserveGRPCConn(ctx context.Context, target string, opts ...grpc.D
 		for {
 			select {
 			case <-ctx.Done():
-				conn.Close()
+				if err = conn.Close(); err != nil {
+					chErr <- err
+				}
 				return
 			default:
 				state := conn.GetState()
@@ -38,14 +40,14 @@ func CreateAndObserveGRPCConn(ctx context.Context, target string, opts ...grpc.D
 						conn.Close()
 						conn, err = grpc.NewClient(target, opts...)
 						if err != nil {
-							return
+							chErr <- err
 						}
 						retries = 0
 					}
 				} else if state == connectivity.Shutdown {
 					conn, err = grpc.NewClient(target, opts...)
 					if err != nil {
-						return
+						chErr <- err
 					}
 					retries = 0
 				}

@@ -6,6 +6,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gorilla/websocket"
 	"math/big"
+	"time"
 )
 
 // ExtractSigFromTx extracts the transaction's signature.
@@ -35,29 +36,36 @@ func NewKeyPair(privateKey solana.PrivateKey) *Keypair {
 }
 
 // SubscribeTipStream establishes a connection to the Jito websocket and receives TipStreamInfo.
-func SubscribeTipStream(ctx context.Context) (chan *TipStreamInfo, error) {
+func SubscribeTipStream(ctx context.Context) (<-chan *TipStreamInfo, <-chan error, error) {
 	dialer := websocket.Dialer{}
 	ch := make(chan *TipStreamInfo)
+	chErr := make(chan error)
 
 	conn, _, err := dialer.Dial(tipStreamURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer conn.Close()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, nil
-		default:
-			var r *TipStreamInfo
-			if err = conn.ReadJSON(r); err != nil {
-				continue
+	go func() {
+		defer conn.Close()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var r *TipStreamInfo
+				if err = conn.ReadJSON(r); err != nil {
+					chErr <- err
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+
+				ch <- r
 			}
-
-			ch <- r
 		}
-	}
+	}()
+
+	return ch, chErr, nil
 }
 
 // GenerateKeypair creates a new Solana Keypair.
@@ -68,4 +76,13 @@ func GenerateKeypair() *Keypair {
 
 func LamportsToSol(lamports *big.Float) *big.Float {
 	return new(big.Float).Quo(lamports, new(big.Float).SetUint64(solana.LAMPORTS_PER_SOL))
+}
+
+// StrSliceToByteSlice converts a string array to a byte array.
+func StrSliceToByteSlice(s []string) [][]byte {
+	byteSlice := make([][]byte, 0, len(s))
+	for _, b := range s {
+		byteSlice = append(byteSlice, []byte(b))
+	}
+	return byteSlice
 }

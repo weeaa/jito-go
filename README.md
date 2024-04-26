@@ -63,7 +63,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 
 ## 💾 Installing
 
-Go 1.21 or higher
+Go 1.22.0 or higher.
 ```shell
 go get github.com/weeaa/jito-go@latest
 ```
@@ -117,8 +117,11 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+  
+  ctx := context.Background()
 
   client, err := searcher_client.New(
+    ctx,
     jito_go.NewYork.BlockEngineURL,
     rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
@@ -195,6 +198,7 @@ package main
 
 import (
   "context"
+  "github.com/gagliardetto/solana-go"
   "github.com/gagliardetto/solana-go/rpc"
   "github.com/joho/godotenv"
   "github.com/weeaa/jito-go"
@@ -223,7 +227,10 @@ func main() {
     log.Fatal(err)
   }
 
+  ctx := context.Background()
+
   client, err := searcher_client.New(
+    ctx,
     jito_go.NewYork.BlockEngineURL,
     rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
@@ -234,7 +241,6 @@ func main() {
     log.Fatal(err)
   }
 
-  txSub := make(chan *solana.Transaction)
   regions := []string{jito_go.NewYork.Region}
   accounts := []string{
     "GuHvDyajPfQpHrg2oCWmArYHrZn2ynxAkSxAPFn9ht1g",
@@ -244,19 +250,12 @@ func main() {
     "CSGeQFoSuN56QZqf9WLqEEkWhRFt6QksTjMDLm68PZKA",
   }
 
-  payload := &searcher_client.SubscribeAccountsMempoolTransactionsPayload{
-    Ctx:      context.Background(),
-    Accounts: accounts,
-    Regions:  regions,
-    TxCh:     make(chan *solana.Transaction),
-    ErrCh:    make(chan error),
-  }
-  
-  if err = client.SubscribeAccountsMempoolTransactions(payload); err != nil {
+  sub, _, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
+  if err != nil {
     log.Fatal(err)
   }
 
-  for tx := range txSub {
+  for tx := range sub {
     log.Println(tx)
   }
 }
@@ -295,7 +294,10 @@ func main() {
     log.Fatal(err)
   }
 
+  ctx := context.Background()
+
   client, err := searcher_client.New(
+    ctx,
     jito_go.NewYork.BlockEngineURL,
     rpc.New(rpcAddr),
     rpc.New(rpc.MainNetBeta_RPC),
@@ -320,36 +322,31 @@ func main() {
 package main
 
 import (
-	"context"
-	"github.com/weeaa/jito-go/clients/geyser_client"
-	"github.com/weeaa/jito-go/proto"
-	"log"
+  "context"
+  "github.com/weeaa/jito-go/clients/geyser_client"
+  "log"
 )
 
 func main() {
-	rpcAddr := "myGeyserRpcNodeURL"
-	
-	// establish conn to geyser node...
-	client, err := geyser_client.New(context.Background(), rpcAddr, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	// create block update sub
-	sub, err := client.SubscribeBlockUpdates()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// create chan to receive block updates
-	ch := make(chan *proto.BlockUpdate)
-	// feed the chan with block updates 
-	client.OnBlockUpdates(context.Background(), sub, ch)
-	
-	// loop to read new block updates from chan
-	for {
-		block := <-ch
-		log.Println(block)
-	}
+  rpcAddr := "myGeyserRpcNodeURL"
+
+  ctx := context.Background()
+
+  // establish conn to geyser node...
+  client, err := geyser_client.New(ctx, rpcAddr, nil)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  sub, _, err := client.OnBlockUpdates(ctx)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  // loop to read new block updates from chan
+  for block := range sub {
+    log.Println(block)
+  }
 }
 ```
 ## 🚨 Disclaimer

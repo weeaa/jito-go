@@ -10,15 +10,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type Client struct {
-	GrpcConn *grpc.ClientConn
-	Ctx      context.Context
-
-	Geyser proto.GeyserClient
-
-	ErrChan chan error
-}
-
 // New creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
 func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
@@ -27,7 +18,8 @@ func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ..
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
-	conn, err := pkg.CreateAndObserveGRPCConn(ctx, grpcDialURL, opts...)
+	chErr := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +28,9 @@ func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ..
 
 	return &Client{
 		GrpcConn: conn,
-		Geyser:   geyserClient,
-		ErrChan:  make(chan error),
 		Ctx:      ctx,
+		Geyser:   geyserClient,
+		ErrChan:  chErr,
 	}, nil
 }
 
@@ -46,138 +38,214 @@ func (c *Client) SubscribePartialAccountUpdates(opts ...grpc.CallOption) (proto.
 	return c.Geyser.SubscribePartialAccountUpdates(c.Ctx, &proto.SubscribePartialAccountUpdatesRequest{SkipVoteAccounts: true}, opts...)
 }
 
-func (c *Client) OnPartialAccountUpdates(sub proto.Geyser_SubscribePartialAccountUpdatesClient, ch chan *proto.PartialAccountUpdate) {
+// OnPartialAccountUpdates is a wrapper of SubscribePartialAccountUpdates.
+func (c *Client) OnPartialAccountUpdates(ctx context.Context) (<-chan *proto.PartialAccountUpdate, <-chan error, error) {
+	sub, err := c.SubscribePartialAccountUpdates()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ch := make(chan *proto.PartialAccountUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
 				subInfo, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnPartialAccountUpdates: %w", err)
+					chErr <- fmt.Errorf("error OnPartialAccountUpdates: %w", err)
 					continue
 				}
+
 				ch <- subInfo.GetPartialAccountUpdate()
 			}
 		}
 	}()
+
+	return ch, chErr, nil
 }
 
 func (c *Client) SubscribeBlockUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeBlockUpdatesClient, error) {
 	return c.Geyser.SubscribeBlockUpdates(c.Ctx, &proto.SubscribeBlockUpdatesRequest{}, opts...)
 }
 
-func (c *Client) OnBlockUpdates(sub proto.Geyser_SubscribeBlockUpdatesClient, ch chan *proto.BlockUpdate) {
+// OnBlockUpdates is a wrapper of SubscribeBlockUpdates.
+func (c *Client) OnBlockUpdates(ctx context.Context) (<-chan *proto.TimestampedBlockUpdate, <-chan error, error) {
+	sub, err := c.SubscribeBlockUpdates()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chBlock := make(chan *proto.TimestampedBlockUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
-				subInfo, err := sub.Recv()
+				resp, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnBlockUpdates: %w", err)
+					chErr <- fmt.Errorf("error OnBlockUpdates: %w", err)
 					continue
 				}
-				ch <- subInfo.BlockUpdate
+
+				chBlock <- resp
 			}
 		}
 	}()
+
+	return chBlock, chErr, nil
 }
 
 func (c *Client) SubscribeAccountUpdates(accounts []string, opts ...grpc.CallOption) (proto.Geyser_SubscribeAccountUpdatesClient, error) {
-	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: strSliceToByteSlice(accounts)}, opts...)
+	return c.Geyser.SubscribeAccountUpdates(c.Ctx, &proto.SubscribeAccountUpdatesRequest{Accounts: pkg.StrSliceToByteSlice(accounts)}, opts...)
 }
 
-func (c *Client) OnAccountUpdates(sub proto.Geyser_SubscribeAccountUpdatesClient, ch chan *proto.AccountUpdate) {
+// OnAccountUpdates is a wrapper of SubscribeAccountUpdates.
+func (c *Client) OnAccountUpdates(ctx context.Context, accounts []string, opts ...grpc.CallOption) (<-chan *proto.TimestampedAccountUpdate, <-chan error, error) {
+	sub, err := c.SubscribeAccountUpdates(accounts, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chAccount := make(chan *proto.TimestampedAccountUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
-				subInfo, err := sub.Recv()
+				resp, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnAccountUpdates: %w", err)
+					chErr <- fmt.Errorf("error OnAccountUpdates: %w", err)
 					continue
 				}
-				ch <- subInfo.AccountUpdate
+
+				chAccount <- resp
 			}
 		}
 	}()
+
+	return chAccount, chErr, nil
 }
 
 func (c *Client) SubscribeProgramUpdates(programs []string, opts ...grpc.CallOption) (proto.Geyser_SubscribeProgramUpdatesClient, error) {
-	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: strSliceToByteSlice(programs)}, opts...)
+	return c.Geyser.SubscribeProgramUpdates(c.Ctx, &proto.SubscribeProgramsUpdatesRequest{Programs: pkg.StrSliceToByteSlice(programs)}, opts...)
 }
 
-func (c *Client) OnProgramUpdate(sub proto.Geyser_SubscribeProgramUpdatesClient, ch chan *proto.AccountUpdate) {
+// OnProgramUpdates is a wrapper of SubscribeProgramUpdates.
+func (c *Client) OnProgramUpdates(ctx context.Context, programs []string, opts ...grpc.CallOption) (<-chan *proto.TimestampedAccountUpdate, <-chan error, error) {
+	sub, err := c.SubscribeProgramUpdates(programs, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chProgram := make(chan *proto.TimestampedAccountUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
-				subInfo, err := sub.Recv()
+				resp, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnProgramUpdate: %w", err)
+					chErr <- fmt.Errorf("error OnProgramUpdate: %w", err)
 					continue
 				}
-				ch <- subInfo.AccountUpdate
+
+				chProgram <- resp
 			}
 		}
 	}()
+
+	return chProgram, chErr, nil
 }
 
 func (c *Client) SubscribeTransactionUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeTransactionUpdatesClient, error) {
 	return c.Geyser.SubscribeTransactionUpdates(c.Ctx, &proto.SubscribeTransactionUpdatesRequest{}, opts...)
 }
 
-func (c *Client) OnTransactionUpdates(sub proto.Geyser_SubscribeTransactionUpdatesClient, ch chan *proto.TransactionUpdate) {
+// OnTransactionUpdates is a wrapper of SubscribeTransactionUpdates.
+func (c *Client) OnTransactionUpdates(ctx context.Context) (<-chan *proto.TimestampedTransactionUpdate, <-chan error, error) {
+	sub, err := c.SubscribeTransactionUpdates()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chTx := make(chan *proto.TimestampedTransactionUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
-				subInfo, err := sub.Recv()
+				resp, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnTransactionUpdates: %w", err)
+					chErr <- fmt.Errorf("error OnTransactionUpdates: %w", err)
 					continue
 				}
-				ch <- subInfo.Transaction
+
+				chTx <- resp
 			}
 		}
 	}()
+
+	return chTx, chErr, err
 }
 
 func (c *Client) SubscribeSlotUpdates(opts ...grpc.CallOption) (proto.Geyser_SubscribeSlotUpdatesClient, error) {
 	return c.Geyser.SubscribeSlotUpdates(c.Ctx, &proto.SubscribeSlotUpdateRequest{}, opts...)
 }
 
-func (c *Client) OnSlotUpdates(sub proto.Geyser_SubscribeSlotUpdatesClient, ch chan *proto.SlotUpdate) {
+// OnSlotUpdates is a wrapper of SubscribeSlotUpdates.
+func (c *Client) OnSlotUpdates(ctx context.Context, opts ...grpc.CallOption) (<-chan *proto.TimestampedSlotUpdate, <-chan error, error) {
+	sub, err := c.SubscribeSlotUpdates(opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chSlot := make(chan *proto.TimestampedSlotUpdate)
+	chErr := make(chan error)
+
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.Ctx.Done():
 				return
 			default:
-				subInfo, err := sub.Recv()
+				resp, err := sub.Recv()
 				if err != nil {
-					c.ErrChan <- fmt.Errorf("error OnSlotUpdates: %w", err)
+					chErr <- fmt.Errorf("error OnSlotUpdates: %w", err)
 					continue
 				}
-				ch <- subInfo.SlotUpdate
+
+				chSlot <- resp
 			}
 		}
 	}()
-}
 
-func strSliceToByteSlice(s []string) [][]byte {
-	byteSlice := make([][]byte, 0, len(s))
-	for _, b := range s {
-		byteSlice = append(byteSlice, []byte(b))
-	}
-	return byteSlice
+	return chSlot, chErr, nil
 }

@@ -1,6 +1,6 @@
 module github.com/weeaa/jito-go
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/gagliardetto/binary v0.8.0
