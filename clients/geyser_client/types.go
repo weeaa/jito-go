@@ -2,7 +2,7 @@ package geyser_client
 
 import (
 	"context"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/MintyFinance/jito-go/proto"
 	"google.golang.org/grpc"
 )
 

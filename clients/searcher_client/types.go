@@ -1,12 +1,13 @@
 package searcher_client
 
 import (
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
-	"google.golang.org/grpc"
 	"math/big"
 	"net/url"
+
+	"github.com/MintyFinance/jito-go/pkg"
+	"github.com/MintyFinance/jito-go/proto"
+	"github.com/MintyFinance/solana-go-custom/rpc"
+	"google.golang.org/grpc"
 )
 
 var jitoURL = &url.URL{

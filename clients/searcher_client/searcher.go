@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/MintyFinance/jito-go/pkg"
+	"github.com/MintyFinance/jito-go/proto"
+	"github.com/MintyFinance/solana-go-custom"
+	"github.com/MintyFinance/solana-go-custom/programs/system"
+	"github.com/MintyFinance/solana-go-custom/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

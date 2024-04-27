@@ -1,8 +1,9 @@
 package pkg
 
 import (
-	"github.com/gagliardetto/solana-go"
 	"time"
+
+	"github.com/MintyFinance/solana-go-custom"
 )
 
 type Keypair struct {

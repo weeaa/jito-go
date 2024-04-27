@@ -2,19 +2,20 @@ package searcher_client
 
 import (
 	"context"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	jito_go "github.com/MintyFinance/jito-go"
+	"github.com/MintyFinance/jito-go/proto"
+	"github.com/MintyFinance/solana-go-custom"
+	"github.com/MintyFinance/solana-go-custom/programs/system"
+	"github.com/MintyFinance/solana-go-custom/rpc"
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {

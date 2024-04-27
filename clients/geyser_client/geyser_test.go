@@ -2,9 +2,9 @@ package geyser_client
 
 import (
 	"context"
+	"github.com/MintyFinance/jito-go/proto"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
-	"github.com/weeaa/jito-go/proto"
 	"os"
 	"path/filepath"
 	"runtime"

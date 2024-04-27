@@ -3,10 +3,11 @@ package pkg
 import (
 	"context"
 	"fmt"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gorilla/websocket"
 	"math/big"
 	"time"
+
+	"github.com/MintyFinance/solana-go-custom"
+	"github.com/gorilla/websocket"
 )
 
 // ExtractSigFromTx extracts the transaction's signature.

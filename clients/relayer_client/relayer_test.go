@@ -2,16 +2,17 @@ package relayer_client
 
 import (
 	"context"
-	"github.com/gagliardetto/solana-go"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	jito_go "github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	jito_go "github.com/MintyFinance/jito-go"
+	"github.com/MintyFinance/jito-go/proto"
+	"github.com/MintyFinance/solana-go-custom"
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {

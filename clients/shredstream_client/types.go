@@ -1,9 +1,9 @@
 package shredstream_client
 
 import (
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/MintyFinance/jito-go/pkg"
+	"github.com/MintyFinance/jito-go/proto"
+	"github.com/MintyFinance/solana-go-custom/rpc"
 	"google.golang.org/grpc"
 )
 
