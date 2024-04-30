@@ -477,6 +477,12 @@ func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bund
 	return &proto.Bundle{Packets: packets, Header: nil}, nil
 }
 
+// ValidateTransaction makes sure the bytes length of your transaction < 1232.
+// If your transaction is bigger, Jito will return an error.
+func ValidateTransaction(tx *solana.Transaction) bool {
+	return len([]byte(tx.String())) <= 1232
+}
+
 // GenerateTipInstruction is a function that generates a Solana tip instruction mandatory to broadcast a bundle to Jito.
 func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
 	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()

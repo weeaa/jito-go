@@ -233,6 +233,7 @@ func (c *Relayer) OnStartExpiringPacketStream(ctx context.Context) (<-chan *prot
 				resp, err := sub.Recv()
 				if err != nil {
 					chErr <- err
+					continue
 				}
 
 				chPacket <- resp

@@ -23,7 +23,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [x] Searcher
 - [x] Block Engine
 - [x] Relayer
-- [ ] ShredStream (WIP, help welcome 😊)
+- [ ] ShredStream (under active development)
 - [x] Geyser
 
 ## 📡 RPC Methods
