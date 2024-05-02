@@ -177,21 +177,6 @@ func Test_SearcherClient(t *testing.T) {
 		fundedWallet, err = solana.PrivateKeyFromBase58(pkey)
 		assert.NoError(t, err, "converting private key with funds to type solana.PrivateKey")
 
-		config := SimulateBundleConfig{
-			PreExecutionAccountsConfigs: []ExecutionAccounts{
-				{
-					Encoding:  "base64",
-					Addresses: []string{"3vjULHsUbX4J2nXZJQQSHkTHoBqhedvHQPDNaAgT9dwG"},
-				},
-			},
-			PostExecutionAccountsConfigs: []ExecutionAccounts{
-				{
-					Encoding:  "base64",
-					Addresses: []string{"3vjULHsUbX4J2nXZJQQSHkTHoBqhedvHQPDNaAgT9dwG"},
-				},
-			},
-		}
-
 		var blockHash *rpc.GetRecentBlockhashResult
 		var tx *solana.Transaction
 
@@ -239,7 +224,20 @@ func Test_SearcherClient(t *testing.T) {
 			SimulateBundleParams{
 				EncodedTransactions: []string{tx.MustToBase64()},
 			},
-			config,
+			SimulateBundleConfig{
+				PreExecutionAccountsConfigs: []ExecutionAccounts{
+					{
+						Encoding:  "base64",
+						Addresses: []string{"3vjULHsUbX4J2nXZJQQSHkTHoBqhedvHQPDNaAgT9dwG"},
+					},
+				},
+				PostExecutionAccountsConfigs: []ExecutionAccounts{
+					{
+						Encoding:  "base64",
+						Addresses: []string{"3vjULHsUbX4J2nXZJQQSHkTHoBqhedvHQPDNaAgT9dwG"},
+					},
+				},
+			},
 		)
 		assert.NoError(t, err, "simulating bundle")
 	})
