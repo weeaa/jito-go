@@ -49,6 +49,7 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+	defer validator.GrpcConn.Close()
 
 	t.Run("Validator_SubscribePackets", func(t *testing.T) {
 		var sub proto.BlockEngineValidator_SubscribePacketsClient
@@ -116,6 +117,7 @@ func Test_BlockEngineValidatorClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+	defer relayer.GrpcConn.Close()
 
 	t.Run("SubscribeAccountsOfInterest", func(t *testing.T) {
 		var sub proto.BlockEngineRelayer_SubscribeAccountsOfInterestClient

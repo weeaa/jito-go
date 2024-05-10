@@ -39,6 +39,7 @@ func Test_GeyserClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+	defer client.GrpcConn.Close()
 
 	// ion have a Geyser RPC although USDC program should work for both, if not lmk :)
 	accounts := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}

@@ -48,6 +48,7 @@ func Test_SearcherClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+	defer client.GrpcConn.Close()
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,

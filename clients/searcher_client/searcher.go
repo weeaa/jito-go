@@ -484,7 +484,7 @@ func ValidateTransaction(tx *solana.Transaction) bool {
 }
 
 // GenerateTipInstruction is a function that generates a Solana tip instruction mandatory to broadcast a bundle to Jito.
-func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
+func GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
 	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()
 }
 
