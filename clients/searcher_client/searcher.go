@@ -22,7 +22,14 @@ import (
 )
 
 // New creates a new Searcher Client instance.
-func New(ctx context.Context, grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+func New(ctx context.Context,
+	grpcDialURL string,
+	jitoRpcClient, rpcClient *rpc.Client,
+	privateKey solana.PrivateKey,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption) (
+	*Client, error) {
+
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -54,6 +61,42 @@ func New(ctx context.Context, grpcDialURL string, jitoRpcClient, rpcClient *rpc.
 		BundleStreamSubscription: subBundleRes,
 		Auth:                     authService,
 		ErrChan:                  chErr,
+	}, nil
+}
+
+// NewNoAuth initializes and returns a new instance of the Searcher Client which does not require private key signing.
+func NewNoAuth(ctx context.Context,
+	grpcDialURL string,
+	jitoRpcClient, rpcClient *rpc.Client,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption) (
+	*Client, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	chErr := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	searcherService := proto.NewSearcherServiceClient(conn)
+	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &proto.SubscribeBundleResultsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		GrpcConn:                 conn,
+		RpcConn:                  rpcClient,
+		JitoRpcConn:              jitoRpcClient,
+		SearcherService:          searcherService,
+		BundleStreamSubscription: subBundleRes,
+		ErrChan:                  chErr,
+		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
 	}, nil
 }
 

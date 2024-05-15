@@ -41,6 +41,15 @@ func Test_GeyserClient(t *testing.T) {
 	}
 	defer client.GrpcConn.Close()
 
+	// todo: unstable code, needs update
+	/*
+		go func(t *testing.T) {
+			for err = range client.ErrChan {
+				t.Fatal(err)
+			}
+		}(t)
+	*/
+
 	// ion have a Geyser RPC although USDC program should work for both, if not lmk :)
 	accounts := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
 	programs := []string{"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
