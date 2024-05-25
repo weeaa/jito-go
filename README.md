@@ -80,6 +80,8 @@ If you want to run tests:
 3. Run tests with `task test`.
 
 ## 🔑 Keypair Authentication
+**[The following isn't mandatory anymore for Searcher access](https://docs.google.com/document/d/e/2PACX-1vRZoiYWNvIdX4r6lf-8E5E0l8SEPKeXXRYRcviwQJjmizeJkeQ_YM4IWGQne-C_8_lFFXv-z6yI6y4K/pub)**.
+
 To access Jito MEV functionalities, you'll need a whitelisted Public Key obtained from a fresh KeyPair; submit your Public Key [here](https://web.miniextensions.com/WV3gZjFwqNqITsMufIEp).
 In order to generate a new KeyPair, you can use the following function `GenerateKeypair()` from the `/pkg` package.
 
