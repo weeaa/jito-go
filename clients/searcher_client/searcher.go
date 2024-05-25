@@ -257,6 +257,51 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
+type BroadcastBundleResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  string `json:"result"`
+	Id      int    `json:"id"`
+}
+
+// BroadcastBundle sends a bundle thru Jito API.
+func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBundleResponse, error) {
+	buf := new(bytes.Buffer)
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "sendBundle",
+		"params":  [][]string{transactions},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    jitoURL,
+		Body:   io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("BroadcastBundle error: unexpected response status %s", resp.Status)
+	}
+
+	var out *BroadcastBundleResponse
+	err = json.NewDecoder(resp.Body).Decode(out)
+	return out, err
+}
+
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
 func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
@@ -431,9 +476,7 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "getBundleStatuses",
-		"params": [][]string{
-			bundleIDs,
-		},
+		"params":  [][]string{bundleIDs},
 	}
 
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
@@ -453,18 +496,15 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 	if err != nil {
 		return nil, fmt.Errorf("error performing GetBundleStatuses: client error > %w", err)
 	}
-
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetBundleStatuses error: unexpected response status %s", resp.Status)
 	}
 
-	data := new(BundleStatusesResponse)
-	err = json.Unmarshal(body, &data)
-
-	return data, err
+	var out *BundleStatusesResponse
+	err = json.NewDecoder(resp.Body).Decode(out)
+	return out, err
 }
 
 func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*BundleStatusesResponse, error) {

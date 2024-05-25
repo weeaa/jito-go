@@ -86,3 +86,12 @@ func StrSliceToByteSlice(s []string) [][]byte {
 	}
 	return byteSlice
 }
+
+// TxToStr converts type solana.Transaction to string.
+func TxToStr(txns []*solana.Transaction) []string {
+	txnsStr := make([]string, len(txns))
+	for _, tx := range txns {
+		txnsStr = append(txnsStr, tx.String())
+	}
+	return txnsStr
+}
