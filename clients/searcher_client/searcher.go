@@ -22,7 +22,14 @@ import (
 )
 
 // New creates a new Searcher Client instance.
-func New(ctx context.Context, grpcDialURL string, jitoRpcClient, rpcClient *rpc.Client, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+func New(ctx context.Context,
+	grpcDialURL string,
+	jitoRpcClient, rpcClient *rpc.Client,
+	privateKey solana.PrivateKey,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption) (
+	*Client, error) {
+
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -54,6 +61,42 @@ func New(ctx context.Context, grpcDialURL string, jitoRpcClient, rpcClient *rpc.
 		BundleStreamSubscription: subBundleRes,
 		Auth:                     authService,
 		ErrChan:                  chErr,
+	}, nil
+}
+
+// NewNoAuth initializes and returns a new instance of the Searcher Client which does not require private key signing.
+func NewNoAuth(ctx context.Context,
+	grpcDialURL string,
+	jitoRpcClient, rpcClient *rpc.Client,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption) (
+	*Client, error) {
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	chErr := make(chan error)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	searcherService := proto.NewSearcherServiceClient(conn)
+	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &proto.SubscribeBundleResultsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		GrpcConn:                 conn,
+		RpcConn:                  rpcClient,
+		JitoRpcConn:              jitoRpcClient,
+		SearcherService:          searcherService,
+		BundleStreamSubscription: subBundleRes,
+		ErrChan:                  chErr,
+		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
 	}, nil
 }
 
@@ -212,6 +255,51 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	}
 
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: bundle}, opts...)
+}
+
+type BroadcastBundleResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  string `json:"result"`
+	Id      int    `json:"id"`
+}
+
+// BroadcastBundle sends a bundle thru Jito API.
+func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBundleResponse, error) {
+	buf := new(bytes.Buffer)
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "sendBundle",
+		"params":  [][]string{transactions},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    jitoURL,
+		Body:   io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("BroadcastBundle error: unexpected response status %s", resp.Status)
+	}
+
+	var out *BroadcastBundleResponse
+	err = json.NewDecoder(resp.Body).Decode(out)
+	return out, err
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
@@ -388,9 +476,7 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "getBundleStatuses",
-		"params": [][]string{
-			bundleIDs,
-		},
+		"params":  [][]string{bundleIDs},
 	}
 
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
@@ -410,18 +496,15 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 	if err != nil {
 		return nil, fmt.Errorf("error performing GetBundleStatuses: client error > %w", err)
 	}
-
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetBundleStatuses error: unexpected response status %s", resp.Status)
 	}
 
-	data := new(BundleStatusesResponse)
-	err = json.Unmarshal(body, &data)
-
-	return data, err
+	var out *BundleStatusesResponse
+	err = json.NewDecoder(resp.Body).Decode(out)
+	return out, err
 }
 
 func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
@@ -477,8 +560,14 @@ func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bund
 	return &proto.Bundle{Packets: packets, Header: nil}, nil
 }
 
+// ValidateTransaction makes sure the bytes length of your transaction < 1232.
+// If your transaction is bigger, Jito will return an error.
+func ValidateTransaction(tx *solana.Transaction) bool {
+	return len([]byte(tx.String())) <= 1232
+}
+
 // GenerateTipInstruction is a function that generates a Solana tip instruction mandatory to broadcast a bundle to Jito.
-func (c *Client) GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
+func GenerateTipInstruction(tipAmount uint64, from, tipAccount solana.PublicKey) solana.Instruction {
 	return system.NewTransferInstruction(tipAmount, from, tipAccount).Build()
 }
 

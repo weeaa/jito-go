@@ -39,6 +39,7 @@ func Test_RelayerClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+	defer client.GrpcConn.Close()
 
 	t.Run("GetTpuConfig", func(t *testing.T) {
 		resp, err := client.GetTpuConfigs()
