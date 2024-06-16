@@ -28,8 +28,10 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [x] Searcher
 - [x] Block Engine
 - [x] Relayer
-- [ ] ShredStream (under active development)
 - [x] Geyser
+- [ ] ShredStream (under active development)
+- [x] Others
+- [x] GraphQL API
 
 ## 📡 RPC Methods
 `🤡* methods which are deprecated by Jito due to malicious use`
@@ -42,7 +44,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
   - `GetConnectedLeadersRegioned`
   - `GetTipAccounts`
   - `SimulateBundle`
-  - `SendBundle`
+  - `SendBundle` (gRPC & HTTP)
   - `SendBundleWithConfirmation`
   - `SubscribeBundleResults`
   - `GetBundleStatuses` (gRPC & HTTP)
@@ -65,6 +67,8 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [ ] **ShredStream**
 - [x] **Others** (pkg/util.go)
   - `SubscribeTipStream`
+- [x] **GraphQL API** (gql/api.go)
+  - `GetBundleHistory`
 
 ## 💾 Installing
 

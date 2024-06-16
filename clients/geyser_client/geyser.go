@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// New creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
-func New(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
+// new creates a new RPC client and connects to the provided endpoint. A Geyser RPC URL is required.
+func new(ctx context.Context, grpcDialURL string, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
