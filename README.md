@@ -28,7 +28,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [x] Searcher
 - [x] Block Engine
 - [x] Relayer
-- [x] Geyser
+- [x] [Geyser](https://github.com/weeaa/goyser) 🐳
 - [ ] ShredStream (under active development)
 - [x] Others
 - [x] GraphQL API
@@ -57,13 +57,6 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
     - `SubscribeAccountsOfInterest`
     - `SubscribeProgramsOfInterest`
     - `StartExpiringPacketStream`
-- [x] **Geyser**
-  - `SubscribePartialAccountUpdates`
-  - `SubscribeBlockUpdates`
-  - `SubscribeAccountUpdates`
-  - `SubscribeProgramUpdates`
-  - `SubscribeTransactionUpdates`
-  - `SubscribeSlotUpdates`
 - [ ] **ShredStream**
 - [x] **Others** (pkg/util.go)
   - `SubscribeTipStream`
