@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/weeaa/jito-go/pb"
 	"io"
 	"math/rand"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -42,13 +42,13 @@ func New(ctx context.Context,
 		return nil, err
 	}
 
-	searcherService := proto.NewSearcherServiceClient(conn)
+	searcherService := jito_pb.NewSearcherServiceClient(conn)
 	authService := pkg.NewAuthenticationService(conn, privateKey)
-	if err = authService.AuthenticateAndRefresh(proto.Role_SEARCHER); err != nil {
+	if err = authService.AuthenticateAndRefresh(jito_pb.Role_SEARCHER); err != nil {
 		return nil, err
 	}
 
-	subBundleRes, err := searcherService.SubscribeBundleResults(authService.GrpcCtx, &proto.SubscribeBundleResultsRequest{})
+	subBundleRes, err := searcherService.SubscribeBundleResults(authService.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,8 @@ func NewNoAuth(ctx context.Context,
 		return nil, err
 	}
 
-	searcherService := proto.NewSearcherServiceClient(conn)
-	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &proto.SubscribeBundleResultsRequest{})
+	searcherService := jito_pb.NewSearcherServiceClient(conn)
+	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &jito_pb.SubscribeBundleResultsRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +101,10 @@ func NewNoAuth(ctx context.Context,
 }
 
 // NewMempoolStreamAccount creates a new mempool subscription on specific Solana accounts.
-func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
-	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{
-		Msg: &proto.MempoolSubscription_WlaV0Sub{
-			WlaV0Sub: &proto.WriteLockedAccountSubscriptionV0{
+func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (jito_pb.SearcherService_SubscribeMempoolClient, error) {
+	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &jito_pb.MempoolSubscription{
+		Msg: &jito_pb.MempoolSubscription_WlaV0Sub{
+			WlaV0Sub: &jito_pb.WriteLockedAccountSubscriptionV0{
 				Accounts: accounts,
 			},
 		},
@@ -113,10 +113,10 @@ func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (proto.Sear
 }
 
 // NewMempoolStreamProgram creates a new mempool subscription on specific Solana programs.
-func (c *Client) NewMempoolStreamProgram(programs, regions []string) (proto.SearcherService_SubscribeMempoolClient, error) {
-	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &proto.MempoolSubscription{
-		Msg: &proto.MempoolSubscription_ProgramV0Sub{
-			ProgramV0Sub: &proto.ProgramSubscriptionV0{
+func (c *Client) NewMempoolStreamProgram(programs, regions []string) (jito_pb.SearcherService_SubscribeMempoolClient, error) {
+	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &jito_pb.MempoolSubscription{
+		Msg: &jito_pb.MempoolSubscription_ProgramV0Sub{
+			ProgramV0Sub: &jito_pb.ProgramSubscriptionV0{
 				Programs: programs,
 			},
 		},
@@ -142,15 +142,14 @@ func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accou
 			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
-				var receipt *proto.PendingTxNotification
-				receipt, err = sub.Recv()
+				receipt, err := sub.Recv()
 				if err != nil {
 					chErr <- fmt.Errorf("SubscribeAccountsMempoolTransactions: failed to receive mempool notification: %w", err)
 					continue
 				}
 
 				for _, transaction := range receipt.Transactions {
-					go func(transaction *proto.Packet) {
+					go func(transaction *jito_pb.Packet) {
 						var tx *solana.Transaction
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
@@ -186,7 +185,7 @@ func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, progr
 			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
-				var receipt *proto.PendingTxNotification
+				var receipt *jito_pb.PendingTxNotification
 				receipt, err = sub.Recv()
 				if err != nil {
 					chErr <- fmt.Errorf("SubscribeProgramsMempoolTransactions: failed to receive mempool notification: %w", err)
@@ -194,7 +193,7 @@ func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, progr
 				}
 
 				for _, transaction := range receipt.Transactions {
-					go func(transaction *proto.Packet) {
+					go func(transaction *jito_pb.Packet) {
 						var tx *solana.Transaction
 						tx, err = pkg.ConvertProtobufPacketToTransaction(transaction)
 						if err != nil {
@@ -212,20 +211,20 @@ func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, progr
 	return chTx, chErr, nil
 }
 
-func (c *Client) GetRegions(opts ...grpc.CallOption) (*proto.GetRegionsResponse, error) {
-	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &proto.GetRegionsRequest{}, opts...)
+func (c *Client) GetRegions(opts ...grpc.CallOption) (*jito_pb.GetRegionsResponse, error) {
+	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &jito_pb.GetRegionsRequest{}, opts...)
 }
 
-func (c *Client) GetConnectedLeaders(opts ...grpc.CallOption) (*proto.ConnectedLeadersResponse, error) {
-	return c.SearcherService.GetConnectedLeaders(c.Auth.GrpcCtx, &proto.ConnectedLeadersRequest{}, opts...)
+func (c *Client) GetConnectedLeaders(opts ...grpc.CallOption) (*jito_pb.ConnectedLeadersResponse, error) {
+	return c.SearcherService.GetConnectedLeaders(c.Auth.GrpcCtx, &jito_pb.ConnectedLeadersRequest{}, opts...)
 }
 
-func (c *Client) GetConnectedLeadersRegioned(regions []string, opts ...grpc.CallOption) (*proto.ConnectedLeadersRegionedResponse, error) {
-	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &proto.ConnectedLeadersRegionedRequest{Regions: regions}, opts...)
+func (c *Client) GetConnectedLeadersRegioned(regions []string, opts ...grpc.CallOption) (*jito_pb.ConnectedLeadersRegionedResponse, error) {
+	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &jito_pb.ConnectedLeadersRegionedRequest{Regions: regions}, opts...)
 }
 
-func (c *Client) GetTipAccounts(opts ...grpc.CallOption) (*proto.GetTipAccountsResponse, error) {
-	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &proto.GetTipAccountsRequest{}, opts...)
+func (c *Client) GetTipAccounts(opts ...grpc.CallOption) (*jito_pb.GetTipAccountsResponse, error) {
+	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &jito_pb.GetTipAccountsRequest{}, opts...)
 }
 
 // GetRandomTipAccount returns a random Jito TipAccount.
@@ -238,23 +237,23 @@ func (c *Client) GetRandomTipAccount(opts ...grpc.CallOption) (string, error) {
 	return resp.Accounts[rand.Intn(len(resp.Accounts))], nil
 }
 
-func (c *Client) GetNextScheduledLeader(regions []string, opts ...grpc.CallOption) (*proto.NextScheduledLeaderResponse, error) {
-	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &proto.NextScheduledLeaderRequest{Regions: regions}, opts...)
+func (c *Client) GetNextScheduledLeader(regions []string, opts ...grpc.CallOption) (*jito_pb.NextScheduledLeaderResponse, error) {
+	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &jito_pb.NextScheduledLeaderRequest{Regions: regions}, opts...)
 }
 
 // NewBundleSubscriptionResults creates a new bundle subscription, allowing to receive information about broadcasted bundles.
-func (c *Client) NewBundleSubscriptionResults(opts ...grpc.CallOption) (proto.SearcherService_SubscribeBundleResultsClient, error) {
-	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &proto.SubscribeBundleResultsRequest{}, opts...)
+func (c *Client) NewBundleSubscriptionResults(opts ...grpc.CallOption) (jito_pb.SearcherService_SubscribeBundleResultsClient, error) {
+	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{}, opts...)
 }
 
 // BroadcastBundle sends a bundle of transactions on chain thru Jito.
-func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
+func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
 	bundle, err := c.AssembleBundle(transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &proto.SendBundleRequest{Bundle: bundle}, opts...)
+	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &jito_pb.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
 type BroadcastBundleResponse struct {
@@ -303,7 +302,7 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
-func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*proto.SendBundleResponse, error) {
+func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
 
 	resp, err := c.BroadcastBundle(transactions, opts...)
@@ -321,7 +320,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 			// waiting 5s to check bundle result
 			time.Sleep(5 * time.Second)
 
-			var bundleResult *proto.BundleResult
+			var bundleResult *jito_pb.BundleResult
 			bundleResult, err = c.BundleStreamSubscription.Recv()
 			if err != nil {
 				continue
@@ -372,26 +371,26 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 	return nil, fmt.Errorf("BroadcastBundleWithConfirmation error: max retries exceeded")
 }
 
-func (c *Client) handleBundleResult(bundleResult *proto.BundleResult) error {
+func (c *Client) handleBundleResult(bundleResult *jito_pb.BundleResult) error {
 	switch bundleResult.Result.(type) {
-	case *proto.BundleResult_Accepted:
+	case *jito_pb.BundleResult_Accepted:
 		break
-	case *proto.BundleResult_Rejected:
-		rejected := bundleResult.Result.(*proto.BundleResult_Rejected)
+	case *jito_pb.BundleResult_Rejected:
+		rejected := bundleResult.Result.(*jito_pb.BundleResult_Rejected)
 		switch rejected.Rejected.Reason.(type) {
-		case *proto.Rejected_SimulationFailure:
+		case *jito_pb.Rejected_SimulationFailure:
 			rejection := rejected.Rejected.GetSimulationFailure()
 			return NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
-		case *proto.Rejected_StateAuctionBidRejected:
+		case *jito_pb.Rejected_StateAuctionBidRejected:
 			rejection := rejected.Rejected.GetStateAuctionBidRejected()
 			return NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-		case *proto.Rejected_WinningBatchBidRejected:
+		case *jito_pb.Rejected_WinningBatchBidRejected:
 			rejection := rejected.Rejected.GetWinningBatchBidRejected()
 			return NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-		case *proto.Rejected_InternalError:
+		case *jito_pb.Rejected_InternalError:
 			rejection := rejected.Rejected.GetInternalError()
 			return NewInternalError(rejection.Msg)
-		case *proto.Rejected_DroppedBundle:
+		case *jito_pb.Rejected_DroppedBundle:
 			rejection := rejected.Rejected.GetDroppedBundle()
 			return NewDroppedBundle(rejection.Msg)
 		default:
@@ -544,20 +543,20 @@ func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*Bundle
 	}
 }
 
-func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*proto.Bundle, error) {
-	packets := make([]*proto.Packet, 0, len(transactions))
+func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*jito_pb.Bundle, error) {
+	packets := make([]*jito_pb.Packet, 0, len(transactions))
 
 	// converts an array of transactions to an array of protobuf packets
 	for i, tx := range transactions {
 		packet, err := pkg.ConvertTransactionToProtobufPacket(tx)
 		if err != nil {
-			return nil, fmt.Errorf("%d: error converting tx to proto packet [%w]", i, err)
+			return nil, fmt.Errorf("%d: error converting tx to jito_pb packet [%w]", i, err)
 		}
 
 		packets = append(packets, &packet)
 	}
 
-	return &proto.Bundle{Packets: packets, Header: nil}, nil
+	return &jito_pb.Bundle{Packets: packets, Header: nil}, nil
 }
 
 // ValidateTransaction makes sure the bytes length of your transaction < 1232.

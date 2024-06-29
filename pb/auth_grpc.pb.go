@@ -4,7 +4,7 @@
 // - protoc             v4.25.2
 // source: auth.proto
 
-package proto
+package jito_pb
 
 import (
 	context "context"
@@ -185,5 +185,5 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "auth.proto",
+	Metadata: "auth.pb",
 }

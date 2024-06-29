@@ -1,15 +1,15 @@
 package blockengine_client
 
 import (
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 )
 
 type Relayer struct {
 	GrpcConn *grpc.ClientConn
 
-	Client proto.BlockEngineRelayerClient
+	Client jito_pb.BlockEngineRelayerClient
 
 	Auth *pkg.AuthenticationService
 
@@ -19,7 +19,7 @@ type Relayer struct {
 type Validator struct {
 	GrpcConn *grpc.ClientConn
 
-	Client proto.BlockEngineValidatorClient
+	Client jito_pb.BlockEngineValidatorClient
 
 	Auth *pkg.AuthenticationService
 

@@ -4,7 +4,7 @@
 // - protoc             v4.25.2
 // source: searcher.proto
 
-package proto
+package jito_pb
 
 import (
 	"context"
@@ -435,5 +435,5 @@ var SearcherService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "searcher.proto",
+	Metadata: "searcher.pb",
 }

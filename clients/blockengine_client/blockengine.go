@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/gagliardetto/solana-go"
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -23,9 +23,9 @@ func NewRelayer(ctx context.Context, grpcDialURL string, privateKey solana.Priva
 		return nil, err
 	}
 
-	blockEngineRelayerClient := proto.NewBlockEngineRelayerClient(conn)
+	blockEngineRelayerClient := jito_pb.NewBlockEngineRelayerClient(conn)
 	authService := pkg.NewAuthenticationService(conn, privateKey)
-	if err = authService.AuthenticateAndRefresh(proto.Role_RELAYER); err != nil {
+	if err = authService.AuthenticateAndRefresh(jito_pb.Role_RELAYER); err != nil {
 		return nil, err
 	}
 
@@ -50,9 +50,9 @@ func NewValidator(ctx context.Context, grpcDialURL string, privateKey solana.Pri
 		return nil, err
 	}
 
-	blockEngineValidatorClient := proto.NewBlockEngineValidatorClient(conn)
+	blockEngineValidatorClient := jito_pb.NewBlockEngineValidatorClient(conn)
 	authService := pkg.NewAuthenticationService(conn, privateKey)
-	if err = authService.AuthenticateAndRefresh(proto.Role_VALIDATOR); err != nil {
+	if err = authService.AuthenticateAndRefresh(jito_pb.Role_VALIDATOR); err != nil {
 		return nil, err
 	}
 
@@ -64,18 +64,18 @@ func NewValidator(ctx context.Context, grpcDialURL string, privateKey solana.Pri
 	}, nil
 }
 
-func (c *Validator) SubscribePackets() (proto.BlockEngineValidator_SubscribePacketsClient, error) {
-	return c.Client.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{})
+func (c *Validator) SubscribePackets() (jito_pb.BlockEngineValidator_SubscribePacketsClient, error) {
+	return c.Client.SubscribePackets(c.Auth.GrpcCtx, &jito_pb.SubscribePacketsRequest{})
 }
 
 // OnPacketSubscription is a wrapper of SubscribePackets.
-func (c *Validator) OnPacketSubscription(ctx context.Context) (<-chan *proto.SubscribePacketsResponse, <-chan error, error) {
+func (c *Validator) OnPacketSubscription(ctx context.Context) (<-chan *jito_pb.SubscribePacketsResponse, <-chan error, error) {
 	sub, err := c.SubscribePackets()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	chPackets := make(chan *proto.SubscribePacketsResponse)
+	chPackets := make(chan *jito_pb.SubscribePacketsResponse)
 	chErr := make(chan error)
 
 	go func() {
@@ -98,18 +98,18 @@ func (c *Validator) OnPacketSubscription(ctx context.Context) (<-chan *proto.Sub
 	return chPackets, chErr, nil
 }
 
-func (c *Validator) SubscribeBundles() (proto.BlockEngineValidator_SubscribeBundlesClient, error) {
-	return c.Client.SubscribeBundles(c.Auth.GrpcCtx, &proto.SubscribeBundlesRequest{})
+func (c *Validator) SubscribeBundles() (jito_pb.BlockEngineValidator_SubscribeBundlesClient, error) {
+	return c.Client.SubscribeBundles(c.Auth.GrpcCtx, &jito_pb.SubscribeBundlesRequest{})
 }
 
 // OnBundleSubscription is a wrapper of SubscribeBundles.
-func (c *Validator) OnBundleSubscription(ctx context.Context) (<-chan []*proto.BundleUuid, <-chan error, error) {
+func (c *Validator) OnBundleSubscription(ctx context.Context) (<-chan []*jito_pb.BundleUuid, <-chan error, error) {
 	sub, err := c.SubscribeBundles()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	chBundleUuid := make(chan []*proto.BundleUuid)
+	chBundleUuid := make(chan []*jito_pb.BundleUuid)
 	chErr := make(chan error)
 
 	go func() {
@@ -134,22 +134,22 @@ func (c *Validator) OnBundleSubscription(ctx context.Context) (<-chan []*proto.B
 	return chBundleUuid, chErr, nil
 }
 
-func (c *Validator) GetBlockBuilderFeeInfo(opts ...grpc.CallOption) (*proto.BlockBuilderFeeInfoResponse, error) {
-	return c.Client.GetBlockBuilderFeeInfo(c.Auth.GrpcCtx, &proto.BlockBuilderFeeInfoRequest{}, opts...)
+func (c *Validator) GetBlockBuilderFeeInfo(opts ...grpc.CallOption) (*jito_pb.BlockBuilderFeeInfoResponse, error) {
+	return c.Client.GetBlockBuilderFeeInfo(c.Auth.GrpcCtx, &jito_pb.BlockBuilderFeeInfoRequest{}, opts...)
 }
 
-func (c *Relayer) SubscribeAccountsOfInterest(opts ...grpc.CallOption) (proto.BlockEngineRelayer_SubscribeAccountsOfInterestClient, error) {
-	return c.Client.SubscribeAccountsOfInterest(c.Auth.GrpcCtx, &proto.AccountsOfInterestRequest{}, opts...)
+func (c *Relayer) SubscribeAccountsOfInterest(opts ...grpc.CallOption) (jito_pb.BlockEngineRelayer_SubscribeAccountsOfInterestClient, error) {
+	return c.Client.SubscribeAccountsOfInterest(c.Auth.GrpcCtx, &jito_pb.AccountsOfInterestRequest{}, opts...)
 }
 
 // OnSubscribeAccountsOfInterest is a wrapper of SubscribeAccountsOfInterest.
-func (c *Relayer) OnSubscribeAccountsOfInterest(ctx context.Context) (<-chan *proto.AccountsOfInterestUpdate, <-chan error, error) {
+func (c *Relayer) OnSubscribeAccountsOfInterest(ctx context.Context) (<-chan *jito_pb.AccountsOfInterestUpdate, <-chan error, error) {
 	sub, err := c.SubscribeAccountsOfInterest()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	chAccountOfInterest := make(chan *proto.AccountsOfInterestUpdate)
+	chAccountOfInterest := make(chan *jito_pb.AccountsOfInterestUpdate)
 	chErr := make(chan error)
 
 	go func() {
@@ -174,18 +174,18 @@ func (c *Relayer) OnSubscribeAccountsOfInterest(ctx context.Context) (<-chan *pr
 	return chAccountOfInterest, chErr, nil
 }
 
-func (c *Relayer) SubscribeProgramsOfInterest(opts ...grpc.CallOption) (proto.BlockEngineRelayer_SubscribeProgramsOfInterestClient, error) {
-	return c.Client.SubscribeProgramsOfInterest(c.Auth.GrpcCtx, &proto.ProgramsOfInterestRequest{}, opts...)
+func (c *Relayer) SubscribeProgramsOfInterest(opts ...grpc.CallOption) (jito_pb.BlockEngineRelayer_SubscribeProgramsOfInterestClient, error) {
+	return c.Client.SubscribeProgramsOfInterest(c.Auth.GrpcCtx, &jito_pb.ProgramsOfInterestRequest{}, opts...)
 }
 
 // OnSubscribeProgramsOfInterest is a wrapper of SubscribeProgramsOfInterest.
-func (c *Relayer) OnSubscribeProgramsOfInterest(ctx context.Context) (<-chan *proto.ProgramsOfInterestUpdate, <-chan error, error) {
+func (c *Relayer) OnSubscribeProgramsOfInterest(ctx context.Context) (<-chan *jito_pb.ProgramsOfInterestUpdate, <-chan error, error) {
 	sub, err := c.SubscribeProgramsOfInterest()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	chProgramsOfInterest := make(chan *proto.ProgramsOfInterestUpdate)
+	chProgramsOfInterest := make(chan *jito_pb.ProgramsOfInterestUpdate)
 	chErr := make(chan error)
 
 	go func() {
@@ -208,18 +208,18 @@ func (c *Relayer) OnSubscribeProgramsOfInterest(ctx context.Context) (<-chan *pr
 	return chProgramsOfInterest, chErr, nil
 }
 
-func (c *Relayer) StartExpiringPacketStream(opts ...grpc.CallOption) (proto.BlockEngineRelayer_StartExpiringPacketStreamClient, error) {
+func (c *Relayer) StartExpiringPacketStream(opts ...grpc.CallOption) (jito_pb.BlockEngineRelayer_StartExpiringPacketStreamClient, error) {
 	return c.Client.StartExpiringPacketStream(c.Auth.GrpcCtx, opts...)
 }
 
 // OnStartExpiringPacketStream is a wrapper of StartExpiringPacketStream.
-func (c *Relayer) OnStartExpiringPacketStream(ctx context.Context) (<-chan *proto.StartExpiringPacketStreamResponse, <-chan error, error) {
+func (c *Relayer) OnStartExpiringPacketStream(ctx context.Context) (<-chan *jito_pb.StartExpiringPacketStreamResponse, <-chan error, error) {
 	sub, err := c.StartExpiringPacketStream()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	chPacket := make(chan *proto.StartExpiringPacketStreamResponse)
+	chPacket := make(chan *jito_pb.StartExpiringPacketStreamResponse)
 	chErr := make(chan error)
 
 	go func() {

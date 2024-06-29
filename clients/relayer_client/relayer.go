@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/gagliardetto/solana-go"
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -24,9 +24,9 @@ func New(ctx context.Context, grpcDialURL string, privateKey solana.PrivateKey, 
 		return nil, err
 	}
 
-	relayerClient := proto.NewRelayerClient(conn)
+	relayerClient := jito_pb.NewRelayerClient(conn)
 	authService := pkg.NewAuthenticationService(conn, privateKey)
-	if err = authService.AuthenticateAndRefresh(proto.Role_RELAYER); err != nil {
+	if err = authService.AuthenticateAndRefresh(jito_pb.Role_RELAYER); err != nil {
 		return nil, err
 	}
 
@@ -38,12 +38,12 @@ func New(ctx context.Context, grpcDialURL string, privateKey solana.PrivateKey, 
 	}, nil
 }
 
-func (c *Client) GetTpuConfigs(opts ...grpc.CallOption) (*proto.GetTpuConfigsResponse, error) {
-	return c.Relayer.GetTpuConfigs(c.Auth.GrpcCtx, &proto.GetTpuConfigsRequest{}, opts...)
+func (c *Client) GetTpuConfigs(opts ...grpc.CallOption) (*jito_pb.GetTpuConfigsResponse, error) {
+	return c.Relayer.GetTpuConfigs(c.Auth.GrpcCtx, &jito_pb.GetTpuConfigsRequest{}, opts...)
 }
 
-func (c *Client) NewPacketsSubscription(opts ...grpc.CallOption) (proto.Relayer_SubscribePacketsClient, error) {
-	return c.Relayer.SubscribePackets(c.Auth.GrpcCtx, &proto.SubscribePacketsRequest{}, opts...)
+func (c *Client) NewPacketsSubscription(opts ...grpc.CallOption) (jito_pb.Relayer_SubscribePacketsClient, error) {
+	return c.Relayer.SubscribePackets(c.Auth.GrpcCtx, &jito_pb.SubscribePacketsRequest{}, opts...)
 }
 
 // SubscribePackets is a wrapper around NewPacketsSubscription.
@@ -64,8 +64,7 @@ func (c *Client) SubscribePackets(ctx context.Context) (<-chan []*solana.Transac
 			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
-				var packet *proto.SubscribePacketsResponse
-				packet, err = sub.Recv()
+				packet, err := sub.Recv()
 				if err != nil {
 					chErr <- fmt.Errorf("SubscribePackets: failed to receive packet information: %w", err)
 				}

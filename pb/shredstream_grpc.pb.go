@@ -4,7 +4,7 @@
 // - protoc             v4.25.2
 // source: shredstream.proto
 
-package proto
+package jito_pb
 
 import (
 	context "context"
@@ -107,5 +107,5 @@ var Shredstream_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "shredstream.proto",
+	Metadata: "shredstream.pb",
 }

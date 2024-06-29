@@ -2,8 +2,8 @@ package searcher_client
 
 import (
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 	"math/big"
 	"net/url"
@@ -20,8 +20,8 @@ type Client struct {
 	RpcConn     *rpc.Client // Utilized for executing standard Solana RPC requests.
 	JitoRpcConn *rpc.Client // Utilized for executing specific Jito RPC requests (Jito node required).
 
-	SearcherService          proto.SearcherServiceClient
-	BundleStreamSubscription proto.SearcherService_SubscribeBundleResultsClient // Used for receiving *proto.BundleResult (bundle broadcast status info).
+	SearcherService          jito_pb.SearcherServiceClient
+	BundleStreamSubscription jito_pb.SearcherService_SubscribeBundleResultsClient // Used for receiving *jito_pb.BundleResult (bundle broadcast status info).
 
 	Auth *pkg.AuthenticationService
 

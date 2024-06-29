@@ -1,15 +1,15 @@
 package relayer_client
 
 import (
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"github.com/weeaa/jito-go/proto"
 	"google.golang.org/grpc"
 )
 
 type Client struct {
 	GrpcConn *grpc.ClientConn
 
-	Relayer proto.RelayerClient
+	Relayer jito_pb.RelayerClient
 
 	Auth *pkg.AuthenticationService
 

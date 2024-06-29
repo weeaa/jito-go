@@ -4,7 +4,7 @@
 // - protoc             v4.25.2
 // source: block_engine.proto
 
-package proto
+package jito_pb
 
 import (
 	"context"
@@ -242,7 +242,7 @@ var BlockEngineValidator_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "block_engine.proto",
+	Metadata: "block_engine.pb",
 }
 
 const (
@@ -508,5 +508,5 @@ var BlockEngineRelayer_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "block_engine.proto",
+	Metadata: "block_engine.pb",
 }

@@ -6,15 +6,12 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
 )
-
-// todo add more tests
 
 func TestMain(m *testing.M) {
 	_, filename, _, _ := runtime.Caller(0)
@@ -52,28 +49,24 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 	defer validator.GrpcConn.Close()
 
 	t.Run("Validator_SubscribePackets", func(t *testing.T) {
-		var sub proto.BlockEngineValidator_SubscribePacketsClient
-		sub, err = validator.SubscribePackets()
+		sub, err := validator.SubscribePackets()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		var resp *proto.SubscribePacketsResponse
-		resp, err = sub.Recv()
+		resp, err := sub.Recv()
 		assert.NoError(t, err)
 
 		assert.NotNil(t, resp.Batch)
 	})
 
 	t.Run("Validator_SubscribeBundles", func(t *testing.T) {
-		var sub proto.BlockEngineValidator_SubscribeBundlesClient
-		sub, err = validator.SubscribeBundles()
+		sub, err := validator.SubscribeBundles()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		var resp *proto.SubscribeBundlesResponse
-		resp, err = sub.Recv()
+		resp, err := sub.Recv()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -84,8 +77,7 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 	})
 
 	t.Run("Validator_GetBlockBuilderFeeInfo", func(t *testing.T) {
-		var resp *proto.BlockBuilderFeeInfoResponse
-		resp, err = validator.GetBlockBuilderFeeInfo()
+		resp, err := validator.GetBlockBuilderFeeInfo()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -120,14 +112,12 @@ func Test_BlockEngineValidatorClient(t *testing.T) {
 	defer relayer.GrpcConn.Close()
 
 	t.Run("SubscribeAccountsOfInterest", func(t *testing.T) {
-		var sub proto.BlockEngineRelayer_SubscribeAccountsOfInterestClient
-		sub, err = relayer.SubscribeAccountsOfInterest()
+		sub, err := relayer.SubscribeAccountsOfInterest()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		var resp *proto.AccountsOfInterestUpdate
-		resp, err = sub.Recv()
+		resp, err := sub.Recv()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
@@ -138,14 +128,12 @@ func Test_BlockEngineValidatorClient(t *testing.T) {
 	})
 
 	t.Run("StartExpiringPacketStream", func(t *testing.T) {
-		var sub proto.BlockEngineRelayer_StartExpiringPacketStreamClient
-		sub, err = relayer.StartExpiringPacketStream()
+		sub, err := relayer.StartExpiringPacketStream()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}
 
-		var resp *proto.StartExpiringPacketStreamResponse
-		resp, err = sub.Recv()
+		resp, err := sub.Recv()
 		if !assert.NoError(t, err) {
 			t.FailNow()
 		}

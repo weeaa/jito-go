@@ -4,7 +4,7 @@
 // 	protoc        v4.25.2
 // source: transaction_by_addr.proto
 
-package proto
+package jito_pb
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

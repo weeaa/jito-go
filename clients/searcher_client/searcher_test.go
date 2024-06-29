@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/weeaa/jito-go/pb"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -72,7 +72,7 @@ func Test_SearcherClient(t *testing.T) {
 	}
 
 	t.Run("GetRegions", func(t *testing.T) {
-		var resp *proto.GetRegionsResponse
+		var resp *jito_pb.GetRegionsResponse
 		resp, err = client.GetRegions()
 		assert.NoError(t, err)
 		assert.Equal(t, jito_go.NewYork.Region, resp.CurrentRegion)
@@ -145,8 +145,8 @@ func Test_SearcherClient(t *testing.T) {
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
-		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+		USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+		PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
 		programs := []string{USDC, PENG}
 
@@ -315,7 +315,7 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	}
 
 	t.Run("GetRegions", func(t *testing.T) {
-		var resp *proto.GetRegionsResponse
+		var resp *jito_pb.GetRegionsResponse
 		resp, err = client.GetRegions()
 		assert.NoError(t, err)
 		assert.Equal(t, jito_go.NewYork.Region, resp.CurrentRegion)
@@ -388,8 +388,8 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
-		USDC := ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-		PENG := ("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+		USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+		PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
 		programs := []string{USDC, PENG}
 

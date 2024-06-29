@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/weeaa/jito-go/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"sync"
@@ -13,7 +13,7 @@ import (
 )
 
 type AuthenticationService struct {
-	AuthService proto.AuthServiceClient
+	AuthService jito_pb.AuthServiceClient
 	GrpcCtx     context.Context
 	KeyPair     *Keypair
 	BearerToken string
@@ -25,7 +25,7 @@ type AuthenticationService struct {
 func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.PrivateKey) *AuthenticationService {
 	return &AuthenticationService{
 		GrpcCtx:     context.Background(),
-		AuthService: proto.NewAuthServiceClient(grpcConn),
+		AuthService: jito_pb.NewAuthServiceClient(grpcConn),
 		KeyPair:     NewKeyPair(privateKey),
 		ErrChan:     make(chan error, 1),
 		mu:          sync.Mutex{},
@@ -33,9 +33,9 @@ func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.Priva
 }
 
 // AuthenticateAndRefresh is a function that authenticates the client and refreshes the access token.
-func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
+func (as *AuthenticationService) AuthenticateAndRefresh(role jito_pb.Role) error {
 	respChallenge, err := as.AuthService.GenerateAuthChallenge(as.GrpcCtx,
-		&proto.GenerateAuthChallengeRequest{
+		&jito_pb.GenerateAuthChallengeRequest{
 			Role:   role,
 			Pubkey: as.KeyPair.PublicKey.Bytes(),
 		},
@@ -51,7 +51,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 		return err
 	}
 
-	respToken, err := as.AuthService.GenerateAuthTokens(as.GrpcCtx, &proto.GenerateAuthTokensRequest{
+	respToken, err := as.AuthService.GenerateAuthTokens(as.GrpcCtx, &jito_pb.GenerateAuthTokensRequest{
 		Challenge:       challenge,
 		SignedChallenge: sig,
 		ClientPubkey:    as.KeyPair.PublicKey.Bytes(),
@@ -68,8 +68,8 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 			case <-as.GrpcCtx.Done():
 				as.ErrChan <- as.GrpcCtx.Err()
 			default:
-				var resp *proto.RefreshAccessTokenResponse
-				resp, err = as.AuthService.RefreshAccessToken(as.GrpcCtx, &proto.RefreshAccessTokenRequest{
+				var resp *jito_pb.RefreshAccessTokenResponse
+				resp, err = as.AuthService.RefreshAccessToken(as.GrpcCtx, &jito_pb.RefreshAccessTokenRequest{
 					RefreshToken: respToken.RefreshToken.Value,
 				})
 				if err != nil {
@@ -87,7 +87,7 @@ func (as *AuthenticationService) AuthenticateAndRefresh(role proto.Role) error {
 }
 
 // updateAuthorizationMetadata updates headers of the gRPC connection.
-func (as *AuthenticationService) updateAuthorizationMetadata(token *proto.Token) {
+func (as *AuthenticationService) updateAuthorizationMetadata(token *jito_pb.Token) {
 	as.mu.Lock()
 	defer as.mu.Unlock()
 

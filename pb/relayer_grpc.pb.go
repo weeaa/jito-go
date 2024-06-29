@@ -4,7 +4,7 @@
 // - protoc             v4.25.2
 // source: relayer.proto
 
-package proto
+package jito_pb
 
 import (
 	"context"
@@ -178,5 +178,5 @@ var Relayer_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "relayer.proto",
+	Metadata: "relayer.pb",
 }

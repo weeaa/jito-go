@@ -4,7 +4,7 @@
 // 	protoc        v4.25.2
 // source: block_engine.proto
 
-package proto
+package jito_pb
 
 import (
 	"google.golang.org/protobuf/reflect/protoreflect"

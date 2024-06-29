@@ -5,8 +5,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
-	jito_go "github.com/weeaa/jito-go"
-	"github.com/weeaa/jito-go/proto"
+	"github.com/weeaa/jito-go"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -56,8 +55,7 @@ func Test_RelayerClient(t *testing.T) {
 			t.FailNow()
 		}
 
-		var recv *proto.SubscribePacketsResponse
-		recv, err = sub.Recv()
+		recv, err := sub.Recv()
 		assert.NoError(t, err)
 
 		recv.Header.String()
