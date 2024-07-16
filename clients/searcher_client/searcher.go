@@ -100,6 +100,7 @@ func NewNoAuth(ctx context.Context,
 	}, nil
 }
 
+/*
 // NewMempoolStreamAccount creates a new mempool subscription on specific Solana accounts.
 func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (jito_pb.SearcherService_SubscribeMempoolClient, error) {
 	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &jito_pb.MempoolSubscription{
@@ -111,7 +112,9 @@ func (c *Client) NewMempoolStreamAccount(accounts, regions []string) (jito_pb.Se
 		Regions: regions,
 	})
 }
+*/
 
+/*
 // NewMempoolStreamProgram creates a new mempool subscription on specific Solana programs.
 func (c *Client) NewMempoolStreamProgram(programs, regions []string) (jito_pb.SearcherService_SubscribeMempoolClient, error) {
 	return c.SearcherService.SubscribeMempool(c.Auth.GrpcCtx, &jito_pb.MempoolSubscription{
@@ -123,7 +126,9 @@ func (c *Client) NewMempoolStreamProgram(programs, regions []string) (jito_pb.Se
 		Regions: regions,
 	})
 }
+*/
 
+/*
 // SubscribeAccountsMempoolTransactions subscribes to the mempool transactions of the provided accounts.
 func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accounts, regions []string) (<-chan *solana.Transaction, <-chan error, error) {
 	sub, err := c.NewMempoolStreamAccount(accounts, regions)
@@ -166,7 +171,9 @@ func (c *Client) SubscribeAccountsMempoolTransactions(ctx context.Context, accou
 
 	return chTx, chErr, nil
 }
+*/
 
+/*
 // SubscribeProgramsMempoolTransactions subscribes to the mempool transactions of the provided programs.
 func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, programs, regions []string) (<-chan *solana.Transaction, <-chan error, error) {
 	sub, err := c.NewMempoolStreamProgram(programs, regions)
@@ -210,6 +217,7 @@ func (c *Client) SubscribeProgramsMempoolTransactions(ctx context.Context, progr
 
 	return chTx, chErr, nil
 }
+*/
 
 func (c *Client) GetRegions(opts ...grpc.CallOption) (*jito_pb.GetRegionsResponse, error) {
 	return c.SearcherService.GetRegions(c.Auth.GrpcCtx, &jito_pb.GetRegionsRequest{}, opts...)
@@ -296,9 +304,9 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 		return nil, fmt.Errorf("BroadcastBundle error: unexpected response status %s", resp.Status)
 	}
 
-	var out *BroadcastBundleResponse
-	err = json.NewDecoder(resp.Body).Decode(out)
-	return out, err
+	var out BroadcastBundleResponse
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return &out, err
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
