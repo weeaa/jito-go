@@ -410,14 +410,14 @@ func (c *Client) handleBundleResult(bundleResult *jito_pb.BundleResult) error {
 
 // SimulateBundle is an RPC method that simulates a Jito bundle – exclusively available to Jito-Solana validator.
 func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
-	out := new(SimulatedBundleResponse)
 
 	if len(bundleParams.EncodedTransactions) != len(simulationConfigs.PreExecutionAccountsConfigs) {
 		return nil, errors.New("pre/post execution account config length must match bundle length")
 	}
 
-	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
-	return out, err
+	var out SimulatedBundleResponse
+	err := c.JitoRpcConn.RPCCallForInto(ctx, &out, "simulateBundle", []interface{}{bundleParams, simulationConfigs})
+	return &out, err
 }
 
 func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*BundleStatusesResponse, error) {
@@ -430,10 +430,10 @@ func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*Bu
 		params = append(params, bundleID)
 	}
 
-	out := new(BundleStatusesResponse)
-	err := c.JitoRpcConn.RPCCallForInto(ctx, out, "getBundleStatuses", params)
+	var out BundleStatusesResponse
+	err := c.JitoRpcConn.RPCCallForInto(ctx, &out, "getBundleStatuses", params)
 
-	return out, err
+	return &out, err
 }
 
 func (c *Client) BatchGetBundleStatuses(ctx context.Context, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
@@ -509,9 +509,9 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 		return nil, fmt.Errorf("GetBundleStatuses error: unexpected response status %s", resp.Status)
 	}
 
-	var out *BundleStatusesResponse
-	err = json.NewDecoder(resp.Body).Decode(out)
-	return out, err
+	var out BundleStatusesResponse
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return &out, err
 }
 
 func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*BundleStatusesResponse, error) {

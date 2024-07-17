@@ -196,7 +196,7 @@ func main() {
   log.Println(resp)
 }
 ```
-### `Subscribe to MemPool Transactions [Accounts]`
+### `Subscribe to MemPool Transactions [Accounts]` 🚨 DISABLED 🚨
 ```go
 package main
 
@@ -320,40 +320,6 @@ func main() {
   log.Println(resp)
 }
 ```
-
-### `Subscribe Block Updates [Geyser]`
-```go
-package main
-
-import (
-  "context"
-  "github.com/weeaa/jito-go/clients/geyser_client"
-  "log"
-)
-
-func main() {
-  rpcAddr := "myGeyserRpcNodeURL"
-
-  ctx := context.Background()
-
-  // establish conn to geyser node...
-  client, err := geyser_client.New(ctx, rpcAddr, nil)
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  sub, _, err := client.OnBlockUpdates(ctx)
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  // loop to read new block updates from chan
-  for block := range sub {
-    log.Println(block)
-  }
-}
-```
-
 ### `Simulate Bundle`
 ```go
 package main
