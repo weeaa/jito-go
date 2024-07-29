@@ -64,6 +64,12 @@ var JitoEndpoints = map[string]JitoEndpointInfo{
 		ShredReceiverAddr: "141.98.216.96:1002",
 		Ntp:               "ntp.dallas.jito.wtf",
 	},
+	"SLC": {
+		Region:            "slc",
+		BlockEngineURL:    "slc.mainnet.block-engine.jito.wtf:443",
+		RelayerURL:        "slc.mainnet.relayer.jito.wtf:8100",
+		ShredReceiverAddr: "64.130.53.8:1002",
+	},
 	"TKY": {
 		Region:            "tokyo",
 		BlockEngineURL:    "tokyo.mainnet.block-engine.jito.wtf:443",
@@ -89,6 +95,7 @@ var Amsterdam = JitoEndpoints["AMS"]
 var Frankfurt = JitoEndpoints["FFM"]
 var NewYork = JitoEndpoints["NY"]
 var Tokyo = JitoEndpoints["TKY"]
+var SaltLakeCity = JitoEndpoints["SLC"]
 var TestnetDallas = JitoEndpoints["BigD-TESTNET"]
 var TestnetNewYork = JitoEndpoints["NY-TESTNET"]
 
