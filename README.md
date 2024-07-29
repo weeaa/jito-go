@@ -13,6 +13,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [Features](#-features)
 - [RPC Methods](#-rpc-methods)
 - [Installing](#-installing)
+- [Update Proto](#-update-proto)
 - [Keypair Authentication](#-keypair-authentication)
 - [Examples](#-examples)
   - [Send Bundle](#send-bundle)
@@ -29,9 +30,8 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [x] Block Engine
 - [x] Relayer
 - [x] [Geyser](https://github.com/weeaa/goyser) 🐳
-- [ ] ShredStream (under active development)
 - [x] Others
-- [x] GraphQL API
+- [ ] GraphQL API
 
 ## 📡 RPC Methods
 `🤡* methods which are deprecated by Jito due to malicious use`
@@ -75,6 +75,28 @@ If you want to run tests:
 1. Install [Task](https://taskfile.dev/installation/).
 2. Initialize your `.env` file by running `task install:<os>` (darwin/linux/windows).
 3. Run tests with `task test`.
+
+## 🔄 Update Proto
+🚨 **Beware that due to duplicate types from jito proto files it will cause an error when building, this issue has been submitted to the team.** 🚨
+
+In order to get latest proto generated files, make sure you have protobuf & its plugins installed!
+
+Using Homebrew (macOS).
+```shell
+brew install protobuf
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+```
+
+Edit perms.
+```shell
+chmod +x ./scripts/generate_protos.sh
+```
+
+Run script.
+```shell
+./scripts/generate_protos.sh
+```
 
 ## 🔑 Keypair Authentication
 **[The following isn't mandatory anymore for Searcher access](https://docs.google.com/document/d/e/2PACX-1vRZoiYWNvIdX4r6lf-8E5E0l8SEPKeXXRYRcviwQJjmizeJkeQ_YM4IWGQne-C_8_lFFXv-z6yI6y4K/pub)**.

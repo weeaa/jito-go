@@ -13,3 +13,6 @@ tasks:
     test:
         cmds:
             - go test ./...
+    ci:
+        cmds:
+            - act

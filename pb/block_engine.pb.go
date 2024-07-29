@@ -20,14 +20,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type SubscribePacketsRequest struct {
+type BlockEngineSubscribePacketsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *SubscribePacketsRequest) Reset() {
-	*x = SubscribePacketsRequest{}
+func (x *BlockEngineSubscribePacketsRequest) Reset() {
+	*x = BlockEngineSubscribePacketsRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_block_engine_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -35,13 +35,13 @@ func (x *SubscribePacketsRequest) Reset() {
 	}
 }
 
-func (x *SubscribePacketsRequest) String() string {
+func (x *BlockEngineSubscribePacketsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SubscribePacketsRequest) ProtoMessage() {}
+func (*BlockEngineSubscribePacketsRequest) ProtoMessage() {}
 
-func (x *SubscribePacketsRequest) ProtoReflect() protoreflect.Message {
+func (x *BlockEngineSubscribePacketsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_block_engine_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -54,11 +54,11 @@ func (x *SubscribePacketsRequest) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use SubscribePacketsRequest.ProtoReflect.Descriptor instead.
-func (*SubscribePacketsRequest) Descriptor() ([]byte, []int) {
+func (*BlockEngineSubscribePacketsRequest) Descriptor() ([]byte, []int) {
 	return file_block_engine_proto_rawDescGZIP(), []int{0}
 }
 
-type SubscribePacketsResponse struct {
+type BlockEngineSubscribePacketsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -67,8 +67,8 @@ type SubscribePacketsResponse struct {
 	Batch  *PacketBatch `protobuf:"bytes,2,opt,name=batch,proto3" json:"batch,omitempty"`
 }
 
-func (x *SubscribePacketsResponse) Reset() {
-	*x = SubscribePacketsResponse{}
+func (x *BlockEngineSubscribePacketsResponse) Reset() {
+	*x = BlockEngineSubscribePacketsResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_block_engine_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -76,13 +76,13 @@ func (x *SubscribePacketsResponse) Reset() {
 	}
 }
 
-func (x *SubscribePacketsResponse) String() string {
+func (x *BlockEngineSubscribePacketsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SubscribePacketsResponse) ProtoMessage() {}
+func (*BlockEngineSubscribePacketsResponse) ProtoMessage() {}
 
-func (x *SubscribePacketsResponse) ProtoReflect() protoreflect.Message {
+func (x *BlockEngineSubscribePacketsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_block_engine_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -95,18 +95,18 @@ func (x *SubscribePacketsResponse) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use SubscribePacketsResponse.ProtoReflect.Descriptor instead.
-func (*SubscribePacketsResponse) Descriptor() ([]byte, []int) {
+func (*BlockEngineSubscribePacketsResponse) Descriptor() ([]byte, []int) {
 	return file_block_engine_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SubscribePacketsResponse) GetHeader() *Header {
+func (x *BlockEngineSubscribePacketsResponse) GetHeader() *Header {
 	if x != nil {
 		return x.Header
 	}
 	return nil
 }
 
-func (x *SubscribePacketsResponse) GetBatch() *PacketBatch {
+func (x *BlockEngineSubscribePacketsResponse) GetBatch() *PacketBatch {
 	if x != nil {
 		return x.Batch
 	}
@@ -821,8 +821,7 @@ var file_block_engine_proto_rawDesc = []byte{
 	0x2e, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x65, 0x6e, 0x67, 0x69, 0x6e, 0x65, 0x2e, 0x53, 0x74,
 	0x61, 0x72, 0x74, 0x45, 0x78, 0x70, 0x69, 0x72, 0x69, 0x6e, 0x67, 0x50, 0x61, 0x63, 0x6b, 0x65,
 	0x74, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x00, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0e, 0x5a, 0x0c, 0x6a, 0x69, 0x74, 0x6f, 0x2f, 0x6a, 0x69,
-	0x74, 0x6f, 0x5f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x00, 0x28, 0x01, 0x30, 0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
