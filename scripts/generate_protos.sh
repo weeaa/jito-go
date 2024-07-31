@@ -3,7 +3,7 @@
 # Define the repository URL and directories
 REPO_URL="https://github.com/jito-labs/mev-protos"
 REPO_DIR="mev-protos"
-OUTPUT_DIR="pb"
+OUTPUT_DIR="../pb"
 IMPORT_PATH="github.com/jito-labs/mev-protos/jito_pb"  # Adjust this to match your actual import path
 
 # Fetch the repository
