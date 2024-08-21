@@ -65,3 +65,11 @@ func ConvertBatchProtobufPacketToTransaction(packets []*jito_pb.Packet) ([]*sola
 
 	return txs, nil
 }
+
+func ConvertBachTransactionsToString(transactions []*solana.Transaction) []string {
+	txs := make([]string, len(transactions))
+	for _, tx := range transactions {
+		txs = append(txs, tx.String())
+	}
+	return txs
+}

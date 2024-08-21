@@ -38,6 +38,11 @@ func New(ctx context.Context, grpcDialURL string, privateKey solana.PrivateKey, 
 	}, nil
 }
 
+func (c *Client) Close() error {
+	close(c.ErrChan)
+	return c.GrpcConn.Close()
+}
+
 func (c *Client) GetTpuConfigs(opts ...grpc.CallOption) (*jito_pb.GetTpuConfigsResponse, error) {
 	return c.Relayer.GetTpuConfigs(c.Auth.GrpcCtx, &jito_pb.GetTpuConfigsRequest{}, opts...)
 }
@@ -64,13 +69,14 @@ func (c *Client) SubscribePackets(ctx context.Context) (<-chan []*solana.Transac
 			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
-				packet, err := sub.Recv()
+				recv, err := sub.Recv()
 				if err != nil {
 					chErr <- fmt.Errorf("SubscribePackets: failed to receive packet information: %w", err)
 				}
 
-				var txns = make([]*solana.Transaction, 0, len(packet.Batch.GetPackets()))
-				txns, err = pkg.ConvertBatchProtobufPacketToTransaction(packet.Batch.GetPackets())
+				packets := recv.GetBatch().GetPackets()
+				var txns = make([]*solana.Transaction, 0, len(packets))
+				txns, err = pkg.ConvertBatchProtobufPacketToTransaction(packets)
 				if err != nil {
 					chErr <- fmt.Errorf("SubscribePackets: failed to convert protobuf packet to transaction: %w", err)
 				}

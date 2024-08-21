@@ -27,7 +27,7 @@ func NewAuthenticationService(grpcConn *grpc.ClientConn, privateKey solana.Priva
 		GrpcCtx:     context.Background(),
 		AuthService: jito_pb.NewAuthServiceClient(grpcConn),
 		KeyPair:     NewKeyPair(privateKey),
-		ErrChan:     make(chan error, 1),
+		ErrChan:     make(chan error),
 		mu:          sync.Mutex{},
 	}
 }

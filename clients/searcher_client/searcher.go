@@ -7,27 +7,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/weeaa/jito-go/pb"
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 // New creates a new Searcher Client instance.
-func New(ctx context.Context,
+func New(
+	ctx context.Context,
 	grpcDialURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
 	privateKey solana.PrivateKey,
 	tlsConfig *tls.Config,
-	opts ...grpc.DialOption) (
+	opts ...grpc.DialOption,
+) (
 	*Client, error) {
 
 	if tlsConfig != nil {
@@ -65,11 +68,13 @@ func New(ctx context.Context,
 }
 
 // NewNoAuth initializes and returns a new instance of the Searcher Client which does not require private key signing.
-func NewNoAuth(ctx context.Context,
+func NewNoAuth(
+	ctx context.Context,
 	grpcDialURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
 	tlsConfig *tls.Config,
-	opts ...grpc.DialOption) (
+	opts ...grpc.DialOption,
+) (
 	*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -98,6 +103,20 @@ func NewNoAuth(ctx context.Context,
 		ErrChan:                  chErr,
 		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
 	}, nil
+}
+
+func (c *Client) Close() error {
+	close(c.ErrChan)
+
+	if err := c.RpcConn.Close(); err != nil {
+		return err
+	}
+
+	if err := c.JitoRpcConn.Close(); err != nil {
+		return err
+	}
+
+	return c.GrpcConn.Close()
 }
 
 /*
@@ -270,7 +289,7 @@ type BroadcastBundleResponse struct {
 	Id      int    `json:"id"`
 }
 
-// BroadcastBundle sends a bundle thru Jito API.
+// BroadcastBundle sends a bundle through Jito API.
 func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBundleResponse, error) {
 	buf := new(bytes.Buffer)
 
@@ -310,31 +329,92 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
-func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
-	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
-
-	resp, err := c.BroadcastBundle(transactions, opts...)
+func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
+	bundle, err := BroadcastBundle(client, pkg.ConvertBachTransactionsToString(transactions))
 	if err != nil {
 		return nil, err
 	}
 
-	retries := 5
-	for i := 0; i < retries; i++ {
+	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+
+			time.Sleep(5 * time.Second)
+
+			bundleStatuses, err := GetInflightBundleStatuses(client, []string{bundle.Result})
+			if err != nil {
+				return nil, err
+			}
+
+			if err = handleBundleResult(bundleStatuses); err != nil {
+				return nil, err
+			}
+
+			var start = time.Now()
+			var statuses *rpc.GetSignatureStatusesResult
+
+			for {
+				statuses, err = rpcConn.GetSignatureStatuses(context.Background(), false, bundleSignatures...)
+				if err != nil {
+					return nil, err
+				}
+
+				ready := true
+				for _, status := range statuses.Value {
+					if status == nil {
+						ready = false
+						break
+					}
+				}
+
+				if ready {
+					break
+				}
+
+				if time.Since(start) > 15*time.Second {
+					return nil, errors.New("operation timed out after 15 seconds")
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
+
+			for _, status := range statuses.Value {
+				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed && status.ConfirmationStatus != rpc.ConfirmationStatusConfirmed {
+					return nil, errors.New("searcher service did not provide bundle status in time")
+				}
+			}
+
+			return bundle, nil
+		}
+	}
+}
+
+// BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
+func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
+	bundle, err := c.BroadcastBundle(transactions, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
+
+	for {
 		select {
 		case <-c.Auth.GrpcCtx.Done():
 			return nil, c.Auth.GrpcCtx.Err()
 		default:
-
-			// waiting 5s to check bundle result
 			time.Sleep(5 * time.Second)
 
-			var bundleResult *jito_pb.BundleResult
-			bundleResult, err = c.BundleStreamSubscription.Recv()
+			bundleResult, err := c.BundleStreamSubscription.Recv()
 			if err != nil {
-				continue
+				return nil, err
 			}
 
-			if err = c.handleBundleResult(bundleResult); err != nil {
+			if err = handleBundleResult(bundleResult); err != nil {
 				return nil, err
 			}
 
@@ -372,45 +452,62 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 				}
 			}
 
-			return resp, nil
+			return bundle, nil
 		}
 	}
-
-	return nil, fmt.Errorf("BroadcastBundleWithConfirmation error: max retries exceeded")
 }
 
-func (c *Client) handleBundleResult(bundleResult *jito_pb.BundleResult) error {
-	switch bundleResult.Result.(type) {
-	case *jito_pb.BundleResult_Accepted:
-		break
-	case *jito_pb.BundleResult_Rejected:
-		rejected := bundleResult.Result.(*jito_pb.BundleResult_Rejected)
-		switch rejected.Rejected.Reason.(type) {
-		case *jito_pb.Rejected_SimulationFailure:
-			rejection := rejected.Rejected.GetSimulationFailure()
-			return NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
-		case *jito_pb.Rejected_StateAuctionBidRejected:
-			rejection := rejected.Rejected.GetStateAuctionBidRejected()
-			return NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-		case *jito_pb.Rejected_WinningBatchBidRejected:
-			rejection := rejected.Rejected.GetWinningBatchBidRejected()
-			return NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
-		case *jito_pb.Rejected_InternalError:
-			rejection := rejected.Rejected.GetInternalError()
-			return NewInternalError(rejection.Msg)
-		case *jito_pb.Rejected_DroppedBundle:
-			rejection := rejected.Rejected.GetDroppedBundle()
-			return NewDroppedBundle(rejection.Msg)
-		default:
-			return nil
+func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleResult](t T) error {
+	switch bundle := any(t).(type) {
+	case *jito_pb.BundleResult:
+		switch bundle.Result.(type) {
+		case *jito_pb.BundleResult_Accepted:
+			break
+		case *jito_pb.BundleResult_Rejected:
+			rejected := bundle.Result.(*jito_pb.BundleResult_Rejected)
+			switch rejected.Rejected.Reason.(type) {
+			case *jito_pb.Rejected_SimulationFailure:
+				rejection := rejected.Rejected.GetSimulationFailure()
+				return NewSimulationFailureError(rejection.TxSignature, rejection.GetMsg())
+			case *jito_pb.Rejected_StateAuctionBidRejected:
+				rejection := rejected.Rejected.GetStateAuctionBidRejected()
+				return NewStateAuctionBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+			case *jito_pb.Rejected_WinningBatchBidRejected:
+				rejection := rejected.Rejected.GetWinningBatchBidRejected()
+				return NewWinningBatchBidRejectedError(rejection.AuctionId, rejection.SimulatedBidLamports)
+			case *jito_pb.Rejected_InternalError:
+				rejection := rejected.Rejected.GetInternalError()
+				return NewInternalError(rejection.Msg)
+			case *jito_pb.Rejected_DroppedBundle:
+				rejection := rejected.Rejected.GetDroppedBundle()
+				return NewDroppedBundle(rejection.Msg)
+			default:
+				return nil
+			}
 		}
+	case *GetInflightBundlesStatusesResponse: // experimental, subject to changes
+		errs := make([]error, len(bundle.Result.Value))
+		for i, value := range bundle.Result.Value {
+			switch value.Status {
+			case "Invalid":
+				errs = append(errs, fmt.Errorf("bundle %d is invalid", i))
+			case "Pending":
+				errs = append(errs, fmt.Errorf("bundle %d is pending", i))
+			case "Failed":
+				errs = append(errs, fmt.Errorf("bundle %d failed to land", i))
+			case "Landed":
+				continue
+			default:
+				errs = append(errs, fmt.Errorf("bundle %d unknown error", i))
+			}
+		}
+		return errors.Join(errs...)
 	}
 	return nil
 }
 
 // SimulateBundle is an RPC method that simulates a Jito bundle – exclusively available to Jito-Solana validator.
 func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
-
 	if len(bundleParams.EncodedTransactions) != len(simulationConfigs.PreExecutionAccountsConfigs) {
 		return nil, errors.New("pre/post execution account config length must match bundle length")
 	}
@@ -420,9 +517,10 @@ func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundle
 	return &out, err
 }
 
+// GetBundleStatuses returns the status of submitted bundle(s). This function operates similarly to the Solana RPC method getSignatureStatuses.
 func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
-		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses  or reduce the amt of bundle", len(bundleIDs))
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses or reduce the amount of bundles", len(bundleIDs))
 	}
 
 	var params []interface{}
@@ -436,6 +534,8 @@ func (c *Client) GetBundleStatuses(ctx context.Context, bundleIDs []string) (*Bu
 	return &out, err
 }
 
+// BatchGetBundleStatuses returns the statuses of multiple submitted bundles by splitting the bundleIDs into groups of up to 5
+// and calling GetBundleStatuses on each group.
 func (c *Client) BatchGetBundleStatuses(ctx context.Context, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
 		var bundles [][]string
@@ -473,9 +573,10 @@ func (c *Client) BatchGetBundleStatuses(ctx context.Context, bundleIDs ...string
 	}
 }
 
+// GetBundleStatuses returns the status of submitted bundle(s). This function operates similarly to the Solana RPC method getSignatureStatuses.
 func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
-		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses or reduce the amt of bundle", len(bundleIDs))
+		return nil, fmt.Errorf("max length reached (exp 5, got %d), please use BatchGetBundleStatuses or reduce the amount of bundles", len(bundleIDs))
 	}
 
 	buf := new(bytes.Buffer)
@@ -514,6 +615,8 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 	return &out, err
 }
 
+// BatchGetBundleStatuses returns the statuses of multiple submitted bundles by splitting the bundleIDs into groups of up to 5
+// and calling GetBundleStatuses on each group.
 func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*BundleStatusesResponse, error) {
 	if len(bundleIDs) > 5 {
 		var bundles [][]string
@@ -551,6 +654,7 @@ func BatchGetBundleStatuses(client *http.Client, bundleIDs ...string) ([]*Bundle
 	}
 }
 
+// AssembleBundle converts an array of SOL transactions to a Jito bundle.
 func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*jito_pb.Bundle, error) {
 	packets := make([]*jito_pb.Packet, 0, len(transactions))
 
@@ -565,6 +669,144 @@ func (c *Client) AssembleBundle(transactions []*solana.Transaction) (*jito_pb.Bu
 	}
 
 	return &jito_pb.Bundle{Packets: packets, Header: nil}, nil
+}
+
+// GetInflightBundleStatuses returns the status of submitted bundles within the last five minutes, allowing up to five bundle IDs per request.
+func GetInflightBundleStatuses(client *http.Client, bundles []string) (*GetInflightBundlesStatusesResponse, error) {
+	buf := new(bytes.Buffer)
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "getInflightBundleStatuses",
+		"params": [][]string{
+			bundles,
+		},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    jitoURL,
+		Body:   io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetInflightBundleStatuses error: unexpected response status %s", resp.Status)
+	}
+
+	var out GetInflightBundlesStatusesResponse
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return &out, err
+}
+
+// GetTipAccounts Retrieves the tip accounts designated for tip payments for bundles.
+func GetTipAccounts(client *http.Client) (*GetTipAccountsResponse, error) {
+	buf := new(bytes.Buffer)
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "getTipAccounts",
+		"params":  []string{},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    jitoURL,
+		Body:   io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetTipAccounts error: unexpected response status %s", resp.Status)
+	}
+
+	var out GetTipAccountsResponse
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return &out, err
+}
+
+// SendTransaction serves as a proxy to the Solana sendTransaction RPC method.
+// It forwards the received transaction as a regular Solana transaction via the Solana RPC method and submits it as a bundle.
+// Jito no longer provides a minimum tip for the bundle.
+// Please note that this minimum tip might not be sufficient to get the bundle through the auction, especially during high-demand periods.
+// Additionally, you need to set a priority fee and jito tip to ensure this transaction is setup correctly.
+// Otherwise, if you set the query parameter bundleOnly=true, the transaction will only be sent out as a bundle and not as a regular transaction via RPC.
+func SendTransaction(client *http.Client, sig string, bundleOnly bool) (*TransactionResponse, error) {
+	buf := new(bytes.Buffer)
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "sendTransaction",
+		"params":  []string{sig},
+	}
+
+	if err := json.NewEncoder(buf).Encode(payload); err != nil {
+		return nil, err
+	}
+
+	var path = "/api/v1/transactions"
+	if bundleOnly {
+		path = "/api/v1/transactions?bundleOnly=true"
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL: &url.URL{
+			Scheme: "https",
+			Host:   "mainnet.block-engine.jito.wtf",
+			Path:   path,
+		},
+		Body: io.NopCloser(buf),
+		Header: http.Header{
+			"Content-Type": {"application/json"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("SendTransaction error: unexpected response status %s", resp.Status)
+	}
+
+	var tx TransactionResponse
+	if err = json.NewDecoder(resp.Body).Decode(&tx); err != nil {
+		return nil, err
+	}
+
+	tx.BundleID = resp.Header.Get("x-bundle-id")
+
+	return &tx, nil
 }
 
 // ValidateTransaction makes sure the bytes length of your transaction < 1232.

@@ -31,7 +31,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [x] Relayer
 - [x] [Geyser](https://github.com/weeaa/goyser) 🐳
 - [x] Others
-- [ ] GraphQL API
+- [x] API
 
 ## 📡 RPC Methods
 `🤡* methods which are deprecated by Jito due to malicious use`
@@ -60,8 +60,8 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 - [ ] **ShredStream**
 - [x] **Others** (pkg/util.go)
   - `SubscribeTipStream`
-- [x] **GraphQL API** (gql/api.go)
-  - `GetBundleHistory`
+- [x] **API** (api/api.go)
+  - `RetrieveRecentBundles`
 
 ## 💾 Installing
 

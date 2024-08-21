@@ -7,7 +7,10 @@ import (
 	"google.golang.org/grpc"
 	"math/big"
 	"net/url"
+	"time"
 )
+
+var DefaultBroadcastBundleTimeout = 30 * time.Second
 
 var jitoURL = &url.URL{
 	Scheme: "https",
@@ -25,7 +28,7 @@ type Client struct {
 
 	Auth *pkg.AuthenticationService
 
-	ErrChan <-chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
+	ErrChan chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
 }
 
 type SimulateBundleConfig struct {
@@ -91,4 +94,32 @@ type BundleStatusesResponse struct {
 		} `json:"value"`
 	} `json:"result"`
 	Id int `json:"id"`
+}
+
+type GetInflightBundlesStatusesResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  struct {
+		Context struct {
+			Slot int `json:"slot"`
+		} `json:"context"`
+		Value []struct {
+			BundleId   string      `json:"bundle_id"`
+			Status     string      `json:"status"`
+			LandedSlot interface{} `json:"landed_slot"`
+		} `json:"value"`
+	} `json:"result"`
+	Id int `json:"id"`
+}
+
+type GetTipAccountsResponse struct {
+	Jsonrpc string   `json:"jsonrpc"`
+	Result  []string `json:"result"`
+	Id      int      `json:"id"`
+}
+
+type TransactionResponse struct {
+	Jsonrpc  string `json:"jsonrpc"`
+	Result   string `json:"result"`
+	ID       int    `json:"id"`
+	BundleID string
 }

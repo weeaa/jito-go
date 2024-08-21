@@ -10,7 +10,15 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func NewRelayer(ctx context.Context, grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Relayer, error) {
+func NewRelayer(
+	ctx context.Context,
+	grpcDialURL string,
+	privateKey solana.PrivateKey,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption,
+) (
+	*Relayer, error) {
+
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -37,7 +45,20 @@ func NewRelayer(ctx context.Context, grpcDialURL string, privateKey solana.Priva
 	}, nil
 }
 
-func NewValidator(ctx context.Context, grpcDialURL string, privateKey solana.PrivateKey, tlsConfig *tls.Config, opts ...grpc.DialOption) (*Validator, error) {
+func (c *Relayer) Close() error {
+	close(c.ErrChan)
+	return c.GrpcConn.Close()
+}
+
+func NewValidator(
+	ctx context.Context,
+	grpcDialURL string,
+	privateKey solana.PrivateKey,
+	tlsConfig *tls.Config,
+	opts ...grpc.DialOption,
+) (
+	*Validator, error) {
+
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -62,6 +83,11 @@ func NewValidator(ctx context.Context, grpcDialURL string, privateKey solana.Pri
 		Auth:     authService,
 		ErrChan:  chErr,
 	}, nil
+}
+
+func (c *Validator) Close() error {
+	close(c.ErrChan)
+	return c.GrpcConn.Close()
 }
 
 func (c *Validator) SubscribePackets() (jito_pb.BlockEngineValidator_SubscribePacketsClient, error) {
@@ -230,13 +256,13 @@ func (c *Relayer) OnStartExpiringPacketStream(ctx context.Context) (<-chan *jito
 			case <-c.Auth.GrpcCtx.Done():
 				return
 			default:
-				resp, err := sub.Recv()
+				recv, err := sub.Recv()
 				if err != nil {
 					chErr <- err
 					continue
 				}
 
-				chPacket <- resp
+				chPacket <- recv
 			}
 		}
 	}()

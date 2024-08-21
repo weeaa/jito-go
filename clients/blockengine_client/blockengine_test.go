@@ -57,7 +57,7 @@ func Test_BlockEngineRelayerClient(t *testing.T) {
 		resp, err := sub.Recv()
 		assert.NoError(t, err)
 
-		assert.NotNil(t, resp.Batch)
+		assert.NotNil(t, resp.Msg)
 	})
 
 	t.Run("Validator_SubscribeBundles", func(t *testing.T) {

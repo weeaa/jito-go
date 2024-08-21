@@ -13,7 +13,7 @@ type Relayer struct {
 
 	Auth *pkg.AuthenticationService
 
-	ErrChan <-chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
+	ErrChan chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
 }
 
 type Validator struct {
@@ -23,5 +23,5 @@ type Validator struct {
 
 	Auth *pkg.AuthenticationService
 
-	ErrChan <-chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
+	ErrChan chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
 }

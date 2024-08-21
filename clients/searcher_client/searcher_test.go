@@ -101,72 +101,77 @@ func Test_SearcherClient(t *testing.T) {
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
 
-		accounts := []string{
-			"GSE6vfr6vws493G22jfwCU6Zawh3dfvSYXYQqKhFsBwe",
-			"xxxxxxqSkjrSvY1igNYjwcw5f9QskeLRKYEmJ1MezhB",
-			"93WbteZH6nrWeHd5JT6mJE5VHbWcCTDZzzqqnpZ98V9G",
-			"FSHZdx73rEGcS5JXUXvW6h8i4AtsrfPTHcgcbXLVUD3A",
-			"Ez2U27TRScksd6q7xoVgX44gX9HAjviN2cdKAL3cFBFE",
-			"EAHJNfFDtivTMzKMNXzwAF9RTAeTd4aEYVwLjCiQWY1E",
-			"AeF3qRpn7DDuRjHhWmyqmZuZGguHXjsNYCzmNv2ZcuMQ",
-			"4CX53LQNwFs3tyRFfwkMxsPV8daao1zCiGQjMMAkKSqx",
-			"EePnRqV4Q2VEHp5nPADqeGKcfPMFmnhDW1Ln9LKsTzWQ",
-			"6WkVGG2vaKcpgsf5dEYHunZRQHHjZWEUfkWiGxtBGnNg",
-			"EMtQTumnZYnv7NSZNGr9WpSSMahkvmNeo9hjhbB9gqFR",
-			"4SkEmhCEdLbJxKk6iFzCJ4eR1rLQGHRTs3q8i2PHLbq8",
-			"HhuJCViqUewRNXrhwNuXCC7gqp2o1cUhx9a3nqEGkkqt",
-			"364kNi4LbCh8iDuNvmbHbPML4N3xbg6msZnaj5dFSJbL",
-			"nJMeypdLT1FfSkzNrdCZnVk5HXKiMNRcgCB9Hj554zu",
-			"HGEj9nJHdAWJKMHGGHRnhvb3i1XakELSRTn5B4otmAhU",
-			"DcpYXJsWBgkV6kck4a7cWBg6B4epPeFRCMZJjxudGKh4",
-			"6nsC3UXTCpHq4tXZ1GEeVPg28B9NF8UV4G14dpm9WCUb",
-			"B4WGtoLYuF4bF5QUjsnSLFYJVrRhNs8N2NqKqojxxKs8",
-			"4sUfdLGg4txSZJdfTkihKLNbM7Xx8WyCmmNqmXc65fjY",
-		}
-
-		txCh, errCh, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			case <-errCh:
-				t.Fatal(err)
-			default:
-				tx := <-txCh
-				assert.NotNil(t, tx)
-				break
+		/*
+			accounts := []string{
+				"GSE6vfr6vws493G22jfwCU6Zawh3dfvSYXYQqKhFsBwe",
+				"xxxxxxqSkjrSvY1igNYjwcw5f9QskeLRKYEmJ1MezhB",
+				"93WbteZH6nrWeHd5JT6mJE5VHbWcCTDZzzqqnpZ98V9G",
+				"FSHZdx73rEGcS5JXUXvW6h8i4AtsrfPTHcgcbXLVUD3A",
+				"Ez2U27TRScksd6q7xoVgX44gX9HAjviN2cdKAL3cFBFE",
+				"EAHJNfFDtivTMzKMNXzwAF9RTAeTd4aEYVwLjCiQWY1E",
+				"AeF3qRpn7DDuRjHhWmyqmZuZGguHXjsNYCzmNv2ZcuMQ",
+				"4CX53LQNwFs3tyRFfwkMxsPV8daao1zCiGQjMMAkKSqx",
+				"EePnRqV4Q2VEHp5nPADqeGKcfPMFmnhDW1Ln9LKsTzWQ",
+				"6WkVGG2vaKcpgsf5dEYHunZRQHHjZWEUfkWiGxtBGnNg",
+				"EMtQTumnZYnv7NSZNGr9WpSSMahkvmNeo9hjhbB9gqFR",
+				"4SkEmhCEdLbJxKk6iFzCJ4eR1rLQGHRTs3q8i2PHLbq8",
+				"HhuJCViqUewRNXrhwNuXCC7gqp2o1cUhx9a3nqEGkkqt",
+				"364kNi4LbCh8iDuNvmbHbPML4N3xbg6msZnaj5dFSJbL",
+				"nJMeypdLT1FfSkzNrdCZnVk5HXKiMNRcgCB9Hj554zu",
+				"HGEj9nJHdAWJKMHGGHRnhvb3i1XakELSRTn5B4otmAhU",
+				"DcpYXJsWBgkV6kck4a7cWBg6B4epPeFRCMZJjxudGKh4",
+				"6nsC3UXTCpHq4tXZ1GEeVPg28B9NF8UV4G14dpm9WCUb",
+				"B4WGtoLYuF4bF5QUjsnSLFYJVrRhNs8N2NqKqojxxKs8",
+				"4sUfdLGg4txSZJdfTkihKLNbM7Xx8WyCmmNqmXc65fjY",
 			}
-		}
+
+			txCh, errCh, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
+			if !assert.NoError(t, err) {
+				t.FailNow()
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				case <-errCh:
+					t.Fatal(err)
+				default:
+					tx := <-txCh
+					assert.NotNil(t, tx)
+					break
+				}
+			}
+		*/
 	})
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
-		USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-		PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
-		programs := []string{USDC, PENG}
+		/*
+			USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+			PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
-		txCh, errCh, err := client.SubscribeProgramsMempoolTransactions(ctx, programs, regions)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+			programs := []string{USDC, PENG}
 
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			case <-errCh:
-				t.Fatal(err)
-			default:
-				tx := <-txCh
-				assert.NotNil(t, tx)
-				break
+			txCh, errCh, err := client.SubscribeProgramsMempoolTransactions(ctx, programs, regions)
+			if !assert.NoError(t, err) {
+				t.FailNow()
 			}
-		}
+
+			for {
+				select {
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				case <-errCh:
+					t.Fatal(err)
+				default:
+					tx := <-txCh
+					assert.NotNil(t, tx)
+					break
+				}
+			}
+		*/
 	})
 
 	t.Run("SimulateBundle", func(t *testing.T) {
@@ -344,72 +349,76 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
 
-		accounts := []string{
-			"GSE6vfr6vws493G22jfwCU6Zawh3dfvSYXYQqKhFsBwe",
-			"xxxxxxqSkjrSvY1igNYjwcw5f9QskeLRKYEmJ1MezhB",
-			"93WbteZH6nrWeHd5JT6mJE5VHbWcCTDZzzqqnpZ98V9G",
-			"FSHZdx73rEGcS5JXUXvW6h8i4AtsrfPTHcgcbXLVUD3A",
-			"Ez2U27TRScksd6q7xoVgX44gX9HAjviN2cdKAL3cFBFE",
-			"EAHJNfFDtivTMzKMNXzwAF9RTAeTd4aEYVwLjCiQWY1E",
-			"AeF3qRpn7DDuRjHhWmyqmZuZGguHXjsNYCzmNv2ZcuMQ",
-			"4CX53LQNwFs3tyRFfwkMxsPV8daao1zCiGQjMMAkKSqx",
-			"EePnRqV4Q2VEHp5nPADqeGKcfPMFmnhDW1Ln9LKsTzWQ",
-			"6WkVGG2vaKcpgsf5dEYHunZRQHHjZWEUfkWiGxtBGnNg",
-			"EMtQTumnZYnv7NSZNGr9WpSSMahkvmNeo9hjhbB9gqFR",
-			"4SkEmhCEdLbJxKk6iFzCJ4eR1rLQGHRTs3q8i2PHLbq8",
-			"HhuJCViqUewRNXrhwNuXCC7gqp2o1cUhx9a3nqEGkkqt",
-			"364kNi4LbCh8iDuNvmbHbPML4N3xbg6msZnaj5dFSJbL",
-			"nJMeypdLT1FfSkzNrdCZnVk5HXKiMNRcgCB9Hj554zu",
-			"HGEj9nJHdAWJKMHGGHRnhvb3i1XakELSRTn5B4otmAhU",
-			"DcpYXJsWBgkV6kck4a7cWBg6B4epPeFRCMZJjxudGKh4",
-			"6nsC3UXTCpHq4tXZ1GEeVPg28B9NF8UV4G14dpm9WCUb",
-			"B4WGtoLYuF4bF5QUjsnSLFYJVrRhNs8N2NqKqojxxKs8",
-			"4sUfdLGg4txSZJdfTkihKLNbM7Xx8WyCmmNqmXc65fjY",
-		}
-
-		txCh, errCh, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			case <-errCh:
-				t.Fatal(err)
-			default:
-				tx := <-txCh
-				assert.NotNil(t, tx)
-				break
+		/*
+			accounts := []string{
+				"GSE6vfr6vws493G22jfwCU6Zawh3dfvSYXYQqKhFsBwe",
+				"xxxxxxqSkjrSvY1igNYjwcw5f9QskeLRKYEmJ1MezhB",
+				"93WbteZH6nrWeHd5JT6mJE5VHbWcCTDZzzqqnpZ98V9G",
+				"FSHZdx73rEGcS5JXUXvW6h8i4AtsrfPTHcgcbXLVUD3A",
+				"Ez2U27TRScksd6q7xoVgX44gX9HAjviN2cdKAL3cFBFE",
+				"EAHJNfFDtivTMzKMNXzwAF9RTAeTd4aEYVwLjCiQWY1E",
+				"AeF3qRpn7DDuRjHhWmyqmZuZGguHXjsNYCzmNv2ZcuMQ",
+				"4CX53LQNwFs3tyRFfwkMxsPV8daao1zCiGQjMMAkKSqx",
+				"EePnRqV4Q2VEHp5nPADqeGKcfPMFmnhDW1Ln9LKsTzWQ",
+				"6WkVGG2vaKcpgsf5dEYHunZRQHHjZWEUfkWiGxtBGnNg",
+				"EMtQTumnZYnv7NSZNGr9WpSSMahkvmNeo9hjhbB9gqFR",
+				"4SkEmhCEdLbJxKk6iFzCJ4eR1rLQGHRTs3q8i2PHLbq8",
+				"HhuJCViqUewRNXrhwNuXCC7gqp2o1cUhx9a3nqEGkkqt",
+				"364kNi4LbCh8iDuNvmbHbPML4N3xbg6msZnaj5dFSJbL",
+				"nJMeypdLT1FfSkzNrdCZnVk5HXKiMNRcgCB9Hj554zu",
+				"HGEj9nJHdAWJKMHGGHRnhvb3i1XakELSRTn5B4otmAhU",
+				"DcpYXJsWBgkV6kck4a7cWBg6B4epPeFRCMZJjxudGKh4",
+				"6nsC3UXTCpHq4tXZ1GEeVPg28B9NF8UV4G14dpm9WCUb",
+				"B4WGtoLYuF4bF5QUjsnSLFYJVrRhNs8N2NqKqojxxKs8",
+				"4sUfdLGg4txSZJdfTkihKLNbM7Xx8WyCmmNqmXc65fjY",
 			}
-		}
+
+			txCh, errCh, err := client.SubscribeAccountsMempoolTransactions(ctx, accounts, regions)
+			if !assert.NoError(t, err) {
+				t.FailNow()
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				case <-errCh:
+					t.Fatal(err)
+				default:
+					tx := <-txCh
+					assert.NotNil(t, tx)
+					break
+				}
+			}
+		*/
 	})
 
 	t.Run("SubscribeMempoolProgram", func(t *testing.T) {
 		t.Skip("skipping test due to rpc method being disabled")
-		USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-		PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+		/*
+			USDC := "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+			PENG := "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
-		programs := []string{USDC, PENG}
+			programs := []string{USDC, PENG}
 
-		txCh, errCh, err := client.SubscribeProgramsMempoolTransactions(ctx, programs, regions)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			case <-errCh:
-				t.Fatal(err)
-			default:
-				tx := <-txCh
-				assert.NotNil(t, tx)
-				break
+			txCh, errCh, err := client.SubscribeProgramsMempoolTransactions(ctx, programs, regions)
+			if !assert.NoError(t, err) {
+				t.FailNow()
 			}
-		}
+
+			for {
+				select {
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				case <-errCh:
+					t.Fatal(err)
+				default:
+					tx := <-txCh
+					assert.NotNil(t, tx)
+					break
+				}
+			}
+		*/
 	})
 
 	t.Run("SimulateBundle", func(t *testing.T) {
@@ -514,3 +523,91 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 		}
 	})
 }
+
+/*
+func TestHandleBundleResult(t *testing.T) {
+	t.Run("handles jito_pb.BundleResult_Accepted", func(t *testing.T) {
+		acceptedBundle := &jito_pb.BundleResult{
+			Result: &jito_pb.BundleResult_Accepted{},
+		}
+
+		err := handleBundleResult(acceptedBundle)
+		require.NoError(t, err)
+	})
+
+	t.Run("handles jito_pb.BundleResult_Rejected with SimulationFailure", func(t *testing.T) {
+		rejection := &jito_pb.Rejected_SimulationFailure{
+			SimulationFailure: &jito_pb.SimulationFailure{
+				TxSignature: "signature",
+				Msg:         "simulation failed",
+			},
+		}
+
+		rejectedBundle := &jito_pb.BundleResult{
+			Result: &jito_pb.BundleResult_Rejected{
+				Rejected: &jito_pb.Rejected{
+					Reason: rejection,
+				},
+			},
+		}
+
+		err := handleBundleResult(rejectedBundle)
+		require.Error(t, err)
+		assert.IsType(t, &SimulationFailureError{}, err)
+		assert.Equal(t, "simulation failed", err.Error())
+	})
+
+	t.Run("handles jito_pb.BundleResult_Rejected with StateAuctionBidRejected", func(t *testing.T) {
+		rejection := &jito_pb.Rejected_StateAuctionBidRejected{
+			StateAuctionBidRejected: &jito_pb.StateAuctionBidRejected{
+				AuctionId:             "auction123",
+				SimulatedBidLamports:  1000,
+			},
+		}
+
+		rejectedBundle := &jito_pb.BundleResult{
+			Result: &jito_pb.BundleResult_Rejected{
+				Rejected: &jito_pb.Rejected{
+					Reason: rejection,
+				},
+			},
+		}
+
+		err := handleBundleResult(rejectedBundle)
+		require.Error(t, err)
+		assert.IsType(t, &StateAuctionBidRejectedError{}, err)
+	})
+
+	t.Run("handles GetInflightBundlesStatusesResponse with mixed statuses", func(t *testing.T) {
+		inflightBundle := &GetInflightBundlesStatusesResponse{
+			Result: &InflightBundlesStatusesResult{
+				Value: []BundleStatus{
+					{Status: "Invalid"},
+					{Status: "Pending"},
+					{Status: "Failed"},
+					{Status: "Landed"},
+					{Status: "Unknown"},
+				},
+			},
+		}
+
+		err := handleBundleResult(inflightBundle)
+		require.Error(t, err)
+		expectedErrMsg := "bundle 0 is invalid; bundle 1 is pending; bundle 2 failed to land; bundle 4 unknown error"
+		assert.Equal(t, expectedErrMsg, err.Error())
+	})
+
+	t.Run("handles GetInflightBundlesStatusesResponse with no errors", func(t *testing.T) {
+		inflightBundle := &GetInflightBundlesStatusesResponse{
+			Result: &InflightBundlesStatusesResult{
+				Value: []BundleStatus{
+					{Status: "Landed"},
+				},
+			},
+		}
+
+		err := handleBundleResult(inflightBundle)
+		require.NoError(t, err)
+	})
+}
+*/
