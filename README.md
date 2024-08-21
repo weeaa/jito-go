@@ -10,6 +10,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 ![jitolabs](https://github.com/weeaa/jito-go/assets/108926252/5751416c-333b-412e-8f3f-f26b2839be98)
 
 ## ❇️ Contents
+- [Support](#-support)
 - [Features](#-features)
 - [RPC Methods](#-rpc-methods)
 - [Installing](#-installing)
@@ -22,8 +23,11 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
   - [Subscribe Block Updates | Geyser](#subscribe-block-updates-geyser)
   - [Simulate Bundle](#simulate-bundle)
 - [Disclaimer](#-disclaimer)
-- [Support](#-support)
 - [License](#-license)
+
+## 🛟 Support
+If my work has been useful in building your for-profit services/infra/bots/etc, consider donating at
+`EcrHvqa5Vh4NhR3bitRZVrdcUGr1Z3o6bXHz7xgBU2FB` (SOL).
 
 ## ✨ Features
 - [x] Searcher
@@ -477,10 +481,6 @@ func main() {
 ## 🚨 Disclaimer
 
 **This library is not affiliated with Jito Labs**. It is a community project and is not officially supported by Jito Labs. Use at your own risk.
-
-## 🛟 Support
-If my work has been useful in building your for-profit services/infra/bots/etc, consider donating at
-`EcrHvqa5Vh4NhR3bitRZVrdcUGr1Z3o6bXHz7xgBU2FB` (SOL).
 
 ## 📃 License
 
