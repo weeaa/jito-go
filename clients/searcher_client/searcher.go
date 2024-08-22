@@ -107,6 +107,7 @@ func NewNoAuth(
 
 func (c *Client) Close() error {
 	close(c.ErrChan)
+	defer c.Auth.GrpcCtx.Done()
 
 	if err := c.RpcConn.Close(); err != nil {
 		return err
@@ -306,11 +307,9 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 
 	req := &http.Request{
 		Method: http.MethodPost,
-		URL:    jitoURL,
+		URL:    jitoBundleURL,
 		Body:   io.NopCloser(buf),
-		Header: http.Header{
-			"Content-Type": {"application/json"},
-		},
+		Header: DefaultHeader.Clone(),
 	}
 
 	resp, err := client.Do(req)
@@ -593,11 +592,9 @@ func GetBundleStatuses(client *http.Client, bundleIDs []string) (*BundleStatuses
 
 	req := &http.Request{
 		Method: http.MethodPost,
-		URL:    jitoURL,
+		URL:    jitoBundleURL,
 		Body:   io.NopCloser(buf),
-		Header: http.Header{
-			"Content-Type": {"application/json"},
-		},
+		Header: DefaultHeader.Clone(),
 	}
 
 	resp, err := client.Do(req)
@@ -690,11 +687,9 @@ func GetInflightBundleStatuses(client *http.Client, bundles []string) (*GetInfli
 
 	req := &http.Request{
 		Method: http.MethodPost,
-		URL:    jitoURL,
+		URL:    jitoBundleURL,
 		Body:   io.NopCloser(buf),
-		Header: http.Header{
-			"Content-Type": {"application/json"},
-		},
+		Header: DefaultHeader.Clone(),
 	}
 
 	resp, err := client.Do(req)
@@ -712,7 +707,7 @@ func GetInflightBundleStatuses(client *http.Client, bundles []string) (*GetInfli
 	return &out, err
 }
 
-// GetTipAccounts Retrieves the tip accounts designated for tip payments for bundles.
+// GetTipAccounts retrieves the tip accounts designated for tip payments for bundles.
 func GetTipAccounts(client *http.Client) (*GetTipAccountsResponse, error) {
 	buf := new(bytes.Buffer)
 
@@ -729,11 +724,9 @@ func GetTipAccounts(client *http.Client) (*GetTipAccountsResponse, error) {
 
 	req := &http.Request{
 		Method: http.MethodPost,
-		URL:    jitoURL,
+		URL:    jitoBundleURL,
 		Body:   io.NopCloser(buf),
-		Header: http.Header{
-			"Content-Type": {"application/json"},
-		},
+		Header: DefaultHeader.Clone(),
 	}
 
 	resp, err := client.Do(req)
@@ -783,10 +776,8 @@ func SendTransaction(client *http.Client, sig string, bundleOnly bool) (*Transac
 			Host:   "mainnet.block-engine.jito.wtf",
 			Path:   path,
 		},
-		Body: io.NopCloser(buf),
-		Header: http.Header{
-			"Content-Type": {"application/json"},
-		},
+		Body:   io.NopCloser(buf),
+		Header: DefaultHeader.Clone(),
 	}
 
 	resp, err := client.Do(req)
@@ -807,12 +798,6 @@ func SendTransaction(client *http.Client, sig string, bundleOnly bool) (*Transac
 	tx.BundleID = resp.Header.Get("x-bundle-id")
 
 	return &tx, nil
-}
-
-// ValidateTransaction makes sure the bytes length of your transaction < 1232.
-// If your transaction is bigger, Jito will return an error.
-func ValidateTransaction(tx *solana.Transaction) bool {
-	return len([]byte(tx.String())) <= 1232
 }
 
 // GenerateTipInstruction is a function that generates a Solana tip instruction mandatory to broadcast a bundle to Jito.

@@ -6,13 +6,16 @@ import (
 	"github.com/weeaa/jito-go/pkg"
 	"google.golang.org/grpc"
 	"math/big"
+	"net/http"
 	"net/url"
-	"time"
 )
 
-var DefaultBroadcastBundleTimeout = 30 * time.Second
+var DefaultHeader = http.Header{
+	"Content-Type": {"application/json"},
+	"User-Agent":   {"jito-go :)"},
+}
 
-var jitoURL = &url.URL{
+var jitoBundleURL = &url.URL{
 	Scheme: "https",
 	Host:   "mainnet.block-engine.jito.wtf",
 	Path:   "/api/v1/bundles",
