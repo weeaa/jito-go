@@ -347,11 +347,11 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 
 			bundleStatuses, err := GetInflightBundleStatuses(client, []string{bundle.Result})
 			if err != nil {
-				return nil, err
+				return bundle, err
 			}
 
 			if err = handleBundleResult(bundleStatuses); err != nil {
-				return nil, err
+				return bundle, err
 			}
 
 			var start = time.Now()
@@ -360,7 +360,7 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 			for {
 				statuses, err = rpcConn.GetSignatureStatuses(context.Background(), false, bundleSignatures...)
 				if err != nil {
-					return nil, err
+					return bundle, err
 				}
 
 				ready := true
@@ -376,7 +376,7 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 				}
 
 				if time.Since(start) > 15*time.Second {
-					return nil, errors.New("operation timed out after 15 seconds")
+					return bundle, errors.New("operation timed out after 15 seconds")
 				} else {
 					time.Sleep(1 * time.Second)
 				}
@@ -384,7 +384,7 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 
 			for _, status := range statuses.Value {
 				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed && status.ConfirmationStatus != rpc.ConfirmationStatusConfirmed {
-					return nil, errors.New("searcher service did not provide bundle status in time")
+					return bundle, errors.New("searcher service did not provide bundle status in time")
 				}
 			}
 
@@ -411,11 +411,11 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 
 			bundleResult, err := c.BundleStreamSubscription.Recv()
 			if err != nil {
-				return nil, err
+				return bundle, err
 			}
 
 			if err = handleBundleResult(bundleResult); err != nil {
-				return nil, err
+				return bundle, err
 			}
 
 			var start = time.Now()
@@ -424,7 +424,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 			for {
 				statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
 				if err != nil {
-					return nil, err
+					return bundle, err
 				}
 				ready := true
 
@@ -440,7 +440,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 				}
 
 				if time.Since(start) > 15*time.Second {
-					return nil, errors.New("operation timed out after 15 seconds")
+					return bundle, errors.New("operation timed out after 15 seconds")
 				} else {
 					time.Sleep(1 * time.Second)
 				}
@@ -448,7 +448,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 
 			for _, status := range statuses.Value {
 				if status.ConfirmationStatus != rpc.ConfirmationStatusProcessed && status.ConfirmationStatus != rpc.ConfirmationStatusConfirmed {
-					return nil, errors.New("searcher service did not provide bundle status in time")
+					return bundle, errors.New("searcher service did not provide bundle status in time")
 				}
 			}
 

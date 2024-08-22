@@ -49,7 +49,7 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
   - `GetTipAccounts`
   - `SimulateBundle`
   - `SendBundle` (gRPC & HTTP)
-  - `SendBundleWithConfirmation`
+  - `SendBundleWithConfirmation` (gRPC & HTTP)
   - `SubscribeBundleResults`
   - `GetBundleStatuses` (gRPC & HTTP)
 - [x] **Block Engine**
@@ -161,6 +161,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+  defer client.Close()
 
   ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
   defer cancel()
@@ -270,6 +271,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+  defer client.Close()
 
   regions := []string{jito_go.NewYork.Region}
   accounts := []string{
@@ -337,6 +339,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+  defer client.Close()
 
   resp, err := client.GetRegions()
   if err != nil {
@@ -396,6 +399,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+  defer client.Close()
 
   ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
   defer cancel()
