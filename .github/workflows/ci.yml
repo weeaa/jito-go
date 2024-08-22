@@ -1,0 +1,30 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.22.1
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Test
+        env:
+          JITO_RPC: ${{ secrets.JITO_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: go test ./...
