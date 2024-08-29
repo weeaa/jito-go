@@ -349,7 +349,7 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 				return bundle, err
 			}
 
-			if err = handleBundleResult(bundleStatuses); err != nil {
+			if err = handleBundleResult(bundleStatuses, bundle.Result); err != nil {
 				return bundle, err
 			}
 
@@ -413,7 +413,7 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 				return bundle, err
 			}
 
-			if err = handleBundleResult(bundleResult); err != nil {
+			if err = handleBundleResult(bundleResult, ""); err != nil {
 				return bundle, err
 			}
 
@@ -456,7 +456,8 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 	}
 }
 
-func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleResult](t T) error {
+// bundleID arg is solely for JSON RPC API.
+func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleResult](t T, bundleID string) error {
 	switch bundle := any(t).(type) {
 	case *jito_pb.BundleResult:
 		switch bundle.Result.(type) {
@@ -485,22 +486,22 @@ func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleR
 			}
 		}
 	case *GetInflightBundlesStatusesResponse: // experimental, subject to changes
-		errs := make([]error, len(bundle.Result.Value))
 		for i, value := range bundle.Result.Value {
-			switch value.Status {
-			case "Invalid":
-				errs = append(errs, fmt.Errorf("bundle %d is invalid", i))
-			case "Pending":
-				errs = append(errs, fmt.Errorf("bundle %d is pending", i))
-			case "Failed":
-				errs = append(errs, fmt.Errorf("bundle %d failed to land", i))
-			case "Landed":
-				continue
-			default:
-				errs = append(errs, fmt.Errorf("bundle %d unknown error", i))
+			if value.BundleId == bundleID {
+				switch value.Status {
+				case "Invalid":
+					return fmt.Errorf("bundle %d is invalid", i)
+				case "Pending":
+					return fmt.Errorf("bundle %d is pending", i)
+				case "Failed":
+					return fmt.Errorf("bundle %d failed to land", i)
+				case "Landed":
+					return nil
+				default:
+					return fmt.Errorf("bundle %d unknown error", i)
+				}
 			}
 		}
-		return errors.Join(errs...)
 	}
 	return nil
 }

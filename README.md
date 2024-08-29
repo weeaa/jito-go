@@ -12,7 +12,7 @@ We currently use [gagliardetto/solana-go](https://github.com/gagliardetto/solana
 ## ❇️ Contents
 - [Support](#-support)
 - [Features](#-features)
-- [RPC Methods](#-rpc-methods)
+- [Methods](#-methods)
 - [Installing](#-installing)
 - [Update Proto](#-update-proto)
 - [Keypair Authentication](#-keypair-authentication)
@@ -37,7 +37,7 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
 - [x] Others
 - [x] API
 
-## 📡 RPC Methods
+## 📡 Methods
 `🤡* methods which are deprecated by Jito due to malicious use`
 - [x] **Searcher**
   - `SubscribeMempoolAccounts` 🤡
@@ -61,7 +61,6 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
     - `SubscribeAccountsOfInterest`
     - `SubscribeProgramsOfInterest`
     - `StartExpiringPacketStream`
-- [ ] **ShredStream**
 - [x] **Others** (pkg/util.go)
   - `SubscribeTipStream`
 - [x] **API** (api/api.go)
