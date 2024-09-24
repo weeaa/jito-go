@@ -53,14 +53,14 @@ func SubscribeTipStream(ctx context.Context) (<-chan *TipStreamInfo, <-chan erro
 			case <-ctx.Done():
 				return
 			default:
-				var r *TipStreamInfo
-				if err = conn.ReadJSON(r); err != nil {
+				var r []*TipStreamInfo
+				if err = conn.ReadJSON(&r); err != nil {
 					chErr <- err
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
 
-				ch <- r
+				ch <- r[0]
 			}
 		}
 	}()
