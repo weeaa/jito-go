@@ -112,12 +112,6 @@ In order to generate a new KeyPair, you can use the following function `Generate
 
 ## 💻 Examples
 
-### `Searcher Client`
-```go
-
-
-```
-
 ### `Send Bundle – gRPC`
 ```go
 package main

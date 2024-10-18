@@ -22,6 +22,8 @@ func BatchExtractSigFromTx(txns []*solana.Transaction) []solana.Signature {
 	return sigs
 }
 
+// BuildTransactionLinks generates a list of URLs for the provided transactions,
+// linking each transaction signature to the appropriate blockchain explorer based on the platform.
 func BuildTransactionLinks(txns []solana.Signature, platform Platform) []string {
 	txs := make([]string, 0, len(txns))
 	for _, tx := range txns {
@@ -74,6 +76,8 @@ func GenerateKeypair() *Keypair {
 	return &Keypair{PublicKey: wallet.PublicKey(), PrivateKey: wallet.PrivateKey}
 }
 
+// LamportsToSol converts the given amount of lamports to SOL by dividing by the
+// number of lamports per SOL.
 func LamportsToSol(lamports *big.Float) *big.Float {
 	return new(big.Float).Quo(lamports, new(big.Float).SetUint64(solana.LAMPORTS_PER_SOL))
 }

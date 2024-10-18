@@ -17,7 +17,7 @@ var (
 
 type Client struct {
 	ctx context.Context
-	c *http.Client
+	c   *http.Client
 }
 
 func New(ctx context.Context, client *http.Client) *Client {
@@ -28,34 +28,32 @@ func (api *Client) RetrieveBundleIDfromTransaction() error {
 	return errors.New("not impl yet")
 }
 
-type tmp struct {}
+type tmp struct{}
 
 func (api *Client) DoYeet() (*tmp, error) {
+	panic("impl me pls")
 	//https://explorer.jito.wtf/wtfrest/api/v1/bundles/recent?limit=1000&sort=Tip&asc=false&timeframe=Week
-	
+
 	req := &http.Request{
 		URL: &url.URL{
 			Scheme: "https",
-			Host: baseApi,
-			Path: fmt.Sprintf(""),
+			Host:   baseApi,
+			Path:   fmt.Sprintf(""),
 		},
 		Header: headers.Clone(),
 	}
-	
+
 	resp, err := api.c.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
-	
+
 	if resp.StatusCode != http.StatusOK {
-		return nil,fmt.Errorf("error %w")
+		return nil, fmt.Errorf("error %w")
 	}
-	
-	if err = json.NewDecoder()
-	
-	
+
+	return nil, nil
 }
 
 // RetrieveRecentBundles fetches a list of recent bundles from the Jito API within a specified timeframe and limit.
