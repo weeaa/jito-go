@@ -60,7 +60,7 @@ func SubscribeTipStream(ctx context.Context) (<-chan []*TipStreamInfo, <-chan er
 					continue
 				}
 
-				ch <- r
+				ch <- r[0]
 			}
 		}
 	}()
