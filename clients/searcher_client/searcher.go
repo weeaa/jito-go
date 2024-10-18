@@ -251,6 +251,7 @@ func (c *Client) GetConnectedLeadersRegioned(regions []string, opts ...grpc.Call
 	return c.SearcherService.GetConnectedLeadersRegioned(c.Auth.GrpcCtx, &jito_pb.ConnectedLeadersRegionedRequest{Regions: regions}, opts...)
 }
 
+// GetTipAccounts returns Jito Tip Accounts.
 func (c *Client) GetTipAccounts(opts ...grpc.CallOption) (*jito_pb.GetTipAccountsResponse, error) {
 	return c.SearcherService.GetTipAccounts(c.Auth.GrpcCtx, &jito_pb.GetTipAccountsRequest{}, opts...)
 }
@@ -269,12 +270,12 @@ func (c *Client) GetNextScheduledLeader(regions []string, opts ...grpc.CallOptio
 	return c.SearcherService.GetNextScheduledLeader(c.Auth.GrpcCtx, &jito_pb.NextScheduledLeaderRequest{Regions: regions}, opts...)
 }
 
-// NewBundleSubscriptionResults creates a new bundle subscription, allowing to receive information about broadcasted bundles.
+// NewBundleSubscriptionResults creates a new bundle subscription stream, allowing to receive information about broadcasted bundles.
 func (c *Client) NewBundleSubscriptionResults(opts ...grpc.CallOption) (jito_pb.SearcherService_SubscribeBundleResultsClient, error) {
 	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{}, opts...)
 }
 
-// BroadcastBundle sends a bundle of transactions on chain thru Jito.
+// BroadcastBundle sends a bundle of transaction(s) on chain through Jito.
 func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
 	bundle, err := c.AssembleBundle(transactions)
 	if err != nil {
@@ -327,7 +328,7 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 	return &out, err
 }
 
-// BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
+// BroadcastBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
 func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
 	bundle, err := BroadcastBundle(client, pkg.ConvertBachTransactionsToString(transactions))
 	if err != nil {
@@ -355,6 +356,8 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 
 			var start = time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
+
+			isRPCNil(rpcConn)
 
 			for {
 				statuses, err = rpcConn.GetSignatureStatuses(context.Background(), false, bundleSignatures...)
@@ -419,6 +422,8 @@ func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactio
 
 			var start = time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
+
+			isRPCNil(c.RpcConn)
 
 			for {
 				statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
@@ -814,6 +819,12 @@ func (c *Client) GenerateTipRandomAccountInstruction(tipAmount uint64, from sola
 	}
 
 	return system.NewTransferInstruction(tipAmount, from, solana.MustPublicKeyFromBase58(tipAccount)).Build(), nil
+}
+
+func isRPCNil(client *rpc.Client) {
+	if client == nil {
+		client = rpc.New(rpc.MainNetBeta_RPC)
+	}
 }
 
 type BundleRejectionError struct {

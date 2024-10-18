@@ -34,8 +34,18 @@ var TestnetTipAccounts = []solana.PublicKey{
 	solana.MustPublicKeyFromBase58("9ttgPBBhRYFuQccdR1DSnb7hydsWANoDsV3P9kaGMCEh"),
 }
 
+type Region string
+
+var (
+	AmsterdamRegion    Region = "amsterdam"
+	FrankfurtRegion    Region = "frankfurt"
+	NewYorkRegion      Region = "ny"
+	SaltLakeCityRegion Region = "slc"
+	TokyoRegion        Region = "tokyo"
+)
+
 type JitoEndpointInfo struct {
-	Region            string
+	Region            Region
 	BlockEngineURL    string
 	RelayerURL        string
 	ShredReceiverAddr string

@@ -53,7 +53,7 @@ func (x *SubscribePacketsRequestBlockEngine) ProtoReflect() protoreflect.Message
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SubscribePacketsRequestBlockEngine.ProtoReflect.Descriptor instead.
+// Deprecated: Use SubscribePacketsRequest.ProtoReflect.Descriptor instead.
 func (*SubscribePacketsRequestBlockEngine) Descriptor() ([]byte, []int) {
 	return file_block_engine_proto_rawDescGZIP(), []int{0}
 }
@@ -94,7 +94,7 @@ func (x *SubscribePacketsResponseBlockEngine) ProtoReflect() protoreflect.Messag
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SubscribePacketsResponseBlockEngine.ProtoReflect.Descriptor instead.
+// Deprecated: Use SubscribePacketsResponse.ProtoReflect.Descriptor instead.
 func (*SubscribePacketsResponseBlockEngine) Descriptor() ([]byte, []int) {
 	return file_block_engine_proto_rawDescGZIP(), []int{1}
 }
@@ -838,41 +838,41 @@ func file_block_engine_proto_rawDescGZIP() []byte {
 
 var file_block_engine_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_block_engine_proto_goTypes = []interface{}{
-	(*SubscribePacketsRequestBlockEngine)(nil),  // 0: block_engine.SubscribePacketsRequestBlockEngine
-	(*SubscribePacketsResponseBlockEngine)(nil), // 1: block_engine.SubscribePacketsResponseBlockEngine
-	(*SubscribeBundlesRequest)(nil),             // 2: block_engine.SubscribeBundlesRequest
-	(*SubscribeBundlesResponse)(nil),            // 3: block_engine.SubscribeBundlesResponse
-	(*BlockBuilderFeeInfoRequest)(nil),          // 4: block_engine.BlockBuilderFeeInfoRequest
-	(*BlockBuilderFeeInfoResponse)(nil),         // 5: block_engine.BlockBuilderFeeInfoResponse
-	(*AccountsOfInterest)(nil),                  // 6: block_engine.AccountsOfInterest
-	(*AccountsOfInterestRequest)(nil),           // 7: block_engine.AccountsOfInterestRequest
-	(*AccountsOfInterestUpdate)(nil),            // 8: block_engine.AccountsOfInterestUpdate
-	(*ProgramsOfInterestRequest)(nil),           // 9: block_engine.ProgramsOfInterestRequest
-	(*ProgramsOfInterestUpdate)(nil),            // 10: block_engine.ProgramsOfInterestUpdate
-	(*ExpiringPacketBatch)(nil),                 // 11: block_engine.ExpiringPacketBatch
-	(*PacketBatchUpdate)(nil),                   // 12: block_engine.PacketBatchUpdate
-	(*StartExpiringPacketStreamResponse)(nil),   // 13: block_engine.StartExpiringPacketStreamResponse
-	(*Header)(nil),                              // 14: shared.Header
-	(*PacketBatch)(nil),                         // 15: packet.PacketBatch
-	(*BundleUuid)(nil),                          // 16: bundle.BundleUuid
-	(*Heartbeat)(nil),                           // 17: shared.Heartbeat
+	(*SubscribePacketsRequest)(nil),           // 0: block_engine.SubscribePacketsRequest
+	(*SubscribePacketsResponse)(nil),          // 1: block_engine.SubscribePacketsResponse
+	(*SubscribeBundlesRequest)(nil),           // 2: block_engine.SubscribeBundlesRequest
+	(*SubscribeBundlesResponse)(nil),          // 3: block_engine.SubscribeBundlesResponse
+	(*BlockBuilderFeeInfoRequest)(nil),        // 4: block_engine.BlockBuilderFeeInfoRequest
+	(*BlockBuilderFeeInfoResponse)(nil),       // 5: block_engine.BlockBuilderFeeInfoResponse
+	(*AccountsOfInterest)(nil),                // 6: block_engine.AccountsOfInterest
+	(*AccountsOfInterestRequest)(nil),         // 7: block_engine.AccountsOfInterestRequest
+	(*AccountsOfInterestUpdate)(nil),          // 8: block_engine.AccountsOfInterestUpdate
+	(*ProgramsOfInterestRequest)(nil),         // 9: block_engine.ProgramsOfInterestRequest
+	(*ProgramsOfInterestUpdate)(nil),          // 10: block_engine.ProgramsOfInterestUpdate
+	(*ExpiringPacketBatch)(nil),               // 11: block_engine.ExpiringPacketBatch
+	(*PacketBatchUpdate)(nil),                 // 12: block_engine.PacketBatchUpdate
+	(*StartExpiringPacketStreamResponse)(nil), // 13: block_engine.StartExpiringPacketStreamResponse
+	(*Header)(nil),                            // 14: shared.Header
+	(*PacketBatch)(nil),                       // 15: packet.PacketBatch
+	(*BundleUuid)(nil),                        // 16: bundle.BundleUuid
+	(*Heartbeat)(nil),                         // 17: shared.Heartbeat
 }
 var file_block_engine_proto_depIdxs = []int32{
-	14, // 0: block_engine.SubscribePacketsResponseBlockEngine.header:type_name -> shared.Header
-	15, // 1: block_engine.SubscribePacketsResponseBlockEngine.batch:type_name -> packet.PacketBatch
+	14, // 0: block_engine.SubscribePacketsResponse.header:type_name -> shared.Header
+	15, // 1: block_engine.SubscribePacketsResponse.batch:type_name -> packet.PacketBatch
 	16, // 2: block_engine.SubscribeBundlesResponse.bundles:type_name -> bundle.BundleUuid
 	14, // 3: block_engine.ExpiringPacketBatch.header:type_name -> shared.Header
 	15, // 4: block_engine.ExpiringPacketBatch.batch:type_name -> packet.PacketBatch
 	11, // 5: block_engine.PacketBatchUpdate.batches:type_name -> block_engine.ExpiringPacketBatch
 	17, // 6: block_engine.PacketBatchUpdate.heartbeat:type_name -> shared.Heartbeat
 	17, // 7: block_engine.StartExpiringPacketStreamResponse.heartbeat:type_name -> shared.Heartbeat
-	0,  // 8: block_engine.BlockEngineValidator.SubscribePackets:input_type -> block_engine.SubscribePacketsRequestBlockEngine
+	0,  // 8: block_engine.BlockEngineValidator.SubscribePackets:input_type -> block_engine.SubscribePacketsRequest
 	2,  // 9: block_engine.BlockEngineValidator.SubscribeBundles:input_type -> block_engine.SubscribeBundlesRequest
 	4,  // 10: block_engine.BlockEngineValidator.GetBlockBuilderFeeInfo:input_type -> block_engine.BlockBuilderFeeInfoRequest
 	7,  // 11: block_engine.BlockEngineRelayer.SubscribeAccountsOfInterest:input_type -> block_engine.AccountsOfInterestRequest
 	9,  // 12: block_engine.BlockEngineRelayer.SubscribeProgramsOfInterest:input_type -> block_engine.ProgramsOfInterestRequest
 	12, // 13: block_engine.BlockEngineRelayer.StartExpiringPacketStream:input_type -> block_engine.PacketBatchUpdate
-	1,  // 14: block_engine.BlockEngineValidator.SubscribePackets:output_type -> block_engine.SubscribePacketsResponseBlockEngine
+	1,  // 14: block_engine.BlockEngineValidator.SubscribePackets:output_type -> block_engine.SubscribePacketsResponse
 	3,  // 15: block_engine.BlockEngineValidator.SubscribeBundles:output_type -> block_engine.SubscribeBundlesResponse
 	5,  // 16: block_engine.BlockEngineValidator.GetBlockBuilderFeeInfo:output_type -> block_engine.BlockBuilderFeeInfoResponse
 	8,  // 17: block_engine.BlockEngineRelayer.SubscribeAccountsOfInterest:output_type -> block_engine.AccountsOfInterestUpdate
@@ -895,7 +895,7 @@ func file_block_engine_proto_init() {
 	file_bundle_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_block_engine_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SubscribePacketsRequestBlockEngine); i {
+			switch v := v.(*SubscribePacketsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -907,7 +907,7 @@ func file_block_engine_proto_init() {
 			}
 		}
 		file_block_engine_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SubscribePacketsResponseBlockEngine); i {
+			switch v := v.(*SubscribePacketsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
