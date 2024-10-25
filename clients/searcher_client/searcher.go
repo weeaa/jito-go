@@ -7,17 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/weeaa/jito-go/pb"
+	"github.com/weeaa/jito-go/pkg"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/weeaa/jito-go/pkg"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // New creates a new Searcher Client instance.
