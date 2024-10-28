@@ -7,12 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"math/rand"
-	"net/http"
-	"net/url"
-	"time"
-
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -20,6 +14,11 @@ import (
 	"github.com/weeaa/jito-go/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"io"
+	"math/rand"
+	"net/http"
+	"net/url"
+	"time"
 )
 
 // New creates a new Searcher Client instance.
@@ -330,7 +329,11 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
 func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
-	bundle, err := BroadcastBundle(client, pkg.ConvertBachTransactionsToString(transactions))
+	txsBase58, err := pkg.ConvertBachTransactionsToBase58(transactions)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := BroadcastBundle(client, txsBase58)
 	if err != nil {
 		return nil, err
 	}
