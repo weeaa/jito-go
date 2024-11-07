@@ -38,9 +38,9 @@ func NewKeyPair(privateKey solana.PrivateKey) *Keypair {
 }
 
 // SubscribeTipStream establishes a connection to the Jito websocket and receives TipStreamInfo.
-func SubscribeTipStream(ctx context.Context) (<-chan *TipStreamInfo, <-chan error, error) {
+func SubscribeTipStream(ctx context.Context) (<-chan []*TipStreamInfo, <-chan error, error) {
 	dialer := websocket.Dialer{}
-	ch := make(chan *TipStreamInfo)
+	ch := make(chan []*TipStreamInfo)
 	chErr := make(chan error)
 
 	conn, _, err := dialer.Dial(tipStreamURL, nil)
@@ -62,7 +62,7 @@ func SubscribeTipStream(ctx context.Context) (<-chan *TipStreamInfo, <-chan erro
 					continue
 				}
 
-				ch <- r[0]
+				ch <- r
 			}
 		}
 	}()

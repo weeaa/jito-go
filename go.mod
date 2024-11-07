@@ -1,6 +1,8 @@
 module github.com/weeaa/jito-go
 
-go 1.22.0
+go 1.22.7
+
+toolchain go1.23.2
 
 require (
 	github.com/gagliardetto/binary v0.8.0
@@ -9,7 +11,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/stretchr/testify v1.9.0
-	google.golang.org/grpc v1.67.1
+	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.35.1
 )
 
@@ -18,7 +20,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fatih/color v1.17.0 // indirect
+	github.com/fatih/color v1.18.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/graphql-go/graphql v0.8.1 // indirect
@@ -46,7 +48,7 @@ require (
 	golang.org/x/term v0.25.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241104194629-dd2ea8efbc28 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
