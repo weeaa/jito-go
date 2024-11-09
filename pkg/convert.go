@@ -3,8 +3,8 @@ package pkg
 import (
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	"github.com/weeaa/jito-go/pb"
 	"github.com/mr-tron/base58"
+	"github.com/weeaa/jito-go/pb"
 )
 
 // ConvertTransactionToProtobufPacket converts a solana-go Transaction to a pb.Packet.
@@ -67,6 +67,7 @@ func ConvertBatchProtobufPacketToTransaction(packets []*jito_pb.Packet) ([]*sola
 	return txs, nil
 }
 
+// ConvertBachTransactionsToBase58 converts a slice of solana.Transaction to a base58 string encoded transaction.
 func ConvertBachTransactionsToBase58(transactions []*solana.Transaction) ([]string, error) {
 	txs := make([]string, len(transactions))
 	for i, tx := range transactions {

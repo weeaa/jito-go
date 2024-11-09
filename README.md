@@ -40,6 +40,8 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
 
 ## 📡 Methods
 `🤡* methods which are deprecated by Jito due to malicious use`
+
+`both gRPC and JSON-RPC methods are supported`
 - [x] **Searcher**
   - `SubscribeMempoolAccounts` 🤡
   - `SubscribeMempoolPrograms` 🤡
@@ -49,10 +51,10 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
   - `GetConnectedLeadersRegioned`
   - `GetTipAccounts`
   - `SimulateBundle`
-  - `SendBundle` (gRPC & HTTP)
-  - `SendBundleWithConfirmation` (gRPC & HTTP)
+  - `SendBundle` (gRPC & RPC)
+  - `SendBundleWithConfirmation` (gRPC & RPC)
   - `SubscribeBundleResults`
-  - `GetBundleStatuses` (gRPC & HTTP)
+  - `GetBundleStatuses` (gRPC & RPC)
 - [x] **Block Engine**
   - Validator
     - `SubscribePackets`
