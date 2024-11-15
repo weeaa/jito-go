@@ -18,6 +18,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -284,16 +285,22 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &jito_pb.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
+// SpamBundle spams BroadcastBundle (spam being the amount of bundles sent). Beware, it uses goroutines 😉.
 func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, opts ...grpc.CallOption) ([]*jito_pb.SendBundleResponse, []error) {
 	bundles := make([]*jito_pb.SendBundleResponse, spam)
 	errs := make([]error, spam)
+	mu := sync.Mutex{}
 	for i := 0; i < spam; i++ {
-		bundle, err := c.BroadcastBundle(transactions, opts...)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		bundles = append(bundles, bundle)
+		go func() {
+			bundle, err := c.BroadcastBundle(transactions, opts...)
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+			mu.Lock()
+			bundles = append(bundles, bundle)
+			mu.Unlock()
+		}()
 	}
 	return bundles, errs
 }
