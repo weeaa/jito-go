@@ -284,6 +284,20 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &jito_pb.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
+func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, opts ...grpc.CallOption) ([]*jito_pb.SendBundleResponse, []error) {
+	bundles := make([]*jito_pb.SendBundleResponse, spam)
+	errs := make([]error, spam)
+	for i := 0; i < spam; i++ {
+		bundle, err := c.BroadcastBundle(transactions, opts...)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		bundles = append(bundles, bundle)
+	}
+	return bundles, errs
+}
+
 type BroadcastBundleResponse struct {
 	Jsonrpc string `json:"jsonrpc"`
 	Result  string `json:"result"`
