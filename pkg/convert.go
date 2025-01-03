@@ -71,12 +71,10 @@ func ConvertBatchProtobufPacketToTransaction(packets []*jito_pb.Packet) ([]*sola
 func ConvertBachTransactionsToBase58(transactions []*solana.Transaction) ([]string, error) {
 	txs := make([]string, len(transactions))
 	for i, tx := range transactions {
-		// marshal transaction to Binary
 		txBytes, err := tx.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
-		// Convert transaction Base58
 		txBase58 := base58.Encode(txBytes)
 		txs[i] = txBase58
 	}

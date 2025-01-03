@@ -36,6 +36,10 @@ var TestnetTipAccounts = []solana.PublicKey{
 
 type Region string
 
+func (r Region) String() string {
+	return string(r)
+}
+
 var (
 	AmsterdamRegion    Region = "amsterdam"
 	FrankfurtRegion    Region = "frankfurt"
@@ -45,7 +49,7 @@ var (
 )
 
 type JitoEndpointInfo struct {
-	Region            Region
+	Region            string
 	BlockEngineURL    string
 	RelayerURL        string
 	ShredReceiverAddr string

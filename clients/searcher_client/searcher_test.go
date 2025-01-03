@@ -2,6 +2,7 @@ package searcher_client
 
 import (
 	"context"
+	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -282,20 +283,20 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	defer cancel()
 
 	rpcAddr, ok := os.LookupEnv("JITO_RPC")
-	if !assert.True(t, ok, "getting JITO_RPC from .env") {
-		t.FailNow()
-	}
+	assert.True(t, ok)
 
 	client, err := NewNoAuth(
 		ctx,
 		jito_go.NewYork.BlockEngineURL,
 		rpc.New(rpcAddr),
 		rpc.New(rpc.MainNetBeta_RPC),
+		os.Getenv("PROXY_URL"),
 		nil,
 	)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	assert.NoError(t, err)
+
+	fmt.Println("connected to client", client)
+
 	defer client.GrpcConn.Close()
 
 	httpClient := &http.Client{

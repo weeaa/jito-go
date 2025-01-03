@@ -12,12 +12,15 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
+	"golang.org/x/net/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -72,6 +75,7 @@ func NewNoAuth(
 	ctx context.Context,
 	grpcDialURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
+	proxyURL string,
 	tlsConfig *tls.Config,
 	opts ...grpc.DialOption,
 ) (
@@ -80,6 +84,14 @@ func NewNoAuth(
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
+
+	if proxyURL != "" {
+		proxyDialer, err := createProxyDialer(proxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create proxy dialer: %w", err)
+		}
+		opts = append(opts, grpc.WithContextDialer(proxyDialer))
 	}
 
 	chErr := make(chan error)
@@ -102,6 +114,35 @@ func NewNoAuth(
 		BundleStreamSubscription: subBundleRes,
 		ErrChan:                  chErr,
 		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
+	}, nil
+}
+
+func parseProxyString(proxyStr string) (host string, port string, username string, password string, err error) {
+	parts := strings.Split(proxyStr, ":")
+	if len(parts) != 4 {
+		return "", "", "", "", fmt.Errorf("invalid proxy format, expected IP:PORT:USERNAME:PASSWORD")
+	}
+	return parts[0], parts[1], parts[2], parts[3], nil
+}
+
+func createProxyDialer(proxyStr string) (func(context.Context, string) (net.Conn, error), error) {
+	host, port, username, password, err := parseProxyString(proxyStr)
+	if err != nil {
+		return nil, err
+	}
+
+	auth := &proxy.Auth{
+		User:     username,
+		Password: password,
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", net.JoinHostPort(host, port), auth, proxy.Direct)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(ctx context.Context, addr string) (net.Conn, error) {
+		return dialer.Dial("tcp", addr)
 	}, nil
 }
 
