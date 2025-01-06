@@ -295,8 +295,6 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	fmt.Println("connected to client", client)
-
 	defer client.GrpcConn.Close()
 
 	httpClient := &http.Client{
@@ -324,6 +322,7 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 		var resp *jito_pb.GetRegionsResponse
 		resp, err = client.GetRegions()
 		assert.NoError(t, err)
+		fmt.Println(resp.CurrentRegion)
 		assert.Equal(t, jito_go.NewYork.Region, resp.CurrentRegion)
 	})
 
@@ -431,10 +430,10 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 		fundedWallet, err = solana.PrivateKeyFromBase58(pkey)
 		assert.NoError(t, err, "converting private key with funds to type solana.PrivateKey")
 
-		var blockHash *rpc.GetRecentBlockhashResult
+		var blockHash *rpc.GetLatestBlockhashResult
 		var tx *solana.Transaction
 
-		blockHash, err = client.RpcConn.GetRecentBlockhash(ctx, rpc.CommitmentConfirmed)
+		blockHash, err = client.RpcConn.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 		if !assert.NoError(t, err, "getting recent block hash from RPC") {
 			t.FailNow()
 		}
@@ -498,30 +497,22 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 
 	t.Run("GetBundleStatuses_Client", func(t *testing.T) {
 		_, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("BatchGetBundleStatuses_Client", func(t *testing.T) {
-		_, err := client.BatchGetBundleStatuses(ctx, bundles...)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		_, err = client.BatchGetBundleStatuses(ctx, bundles...)
+		assert.NoError(t, err)
 	})
 
 	t.Run("GetBundleStatuses_Http", func(t *testing.T) {
 		_, err := GetBundleStatuses(httpClient, []string{bundles[0]})
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("BatchGetBundleStatuses_Http", func(t *testing.T) {
 		_, err := BatchGetBundleStatuses(httpClient, bundles...)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		assert.NoError(t, err)
 	})
 }
 

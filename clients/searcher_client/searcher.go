@@ -1,9 +1,11 @@
 package searcher_client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,9 +14,9 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
-	"golang.org/x/net/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"io"
 	"math/rand"
 	"net"
@@ -87,11 +89,19 @@ func NewNoAuth(
 	}
 
 	if proxyURL != "" {
-		proxyDialer, err := createProxyDialer(proxyURL)
+		dialer, err := createContextDialer(proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create proxy dialer: %w", err)
 		}
-		opts = append(opts, grpc.WithContextDialer(proxyDialer))
+
+		opts = append(opts,
+			grpc.WithContextDialer(dialer),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:                15 * time.Second,
+				Timeout:             5 * time.Second,
+				PermitWithoutStream: true,
+			}),
+		)
 	}
 
 	chErr := make(chan error)
@@ -125,25 +135,78 @@ func parseProxyString(proxyStr string) (host string, port string, username strin
 	return parts[0], parts[1], parts[2], parts[3], nil
 }
 
-func createProxyDialer(proxyStr string) (func(context.Context, string) (net.Conn, error), error) {
+type proxyDialer struct {
+	proxyHost string
+	auth      string
+	timeout   time.Duration
+}
+
+func newProxyDialer(proxyStr string) (*proxyDialer, error) {
 	host, port, username, password, err := parseProxyString(proxyStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid proxy string: %w", err)
 	}
 
-	auth := &proxy.Auth{
-		User:     username,
-		Password: password,
+	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+
+	return &proxyDialer{
+		proxyHost: net.JoinHostPort(host, port),
+		auth:      auth,
+		timeout:   30 * time.Second,
+	}, nil
+}
+
+func (d *proxyDialer) dialProxy(ctx context.Context, addr string) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+
+	dialer := &net.Dialer{
+		Timeout:   d.timeout,
+		KeepAlive: 30 * time.Second,
 	}
 
-	dialer, err := proxy.SOCKS5("tcp", net.JoinHostPort(host, port), auth, proxy.Direct)
+	conn, err = dialer.DialContext(ctx, "tcp", d.proxyHost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to proxy %s: %w", d.proxyHost, err)
+	}
+
+	connectReq := fmt.Sprintf(
+		"CONNECT %s HTTP/1.1\r\n"+
+			"Host: %s\r\n"+
+			"Proxy-Authorization: Basic %s\r\n"+
+			"User-Agent: Go-http-client/1.1\r\n"+
+			"\r\n",
+		addr, addr, d.auth,
+	)
+
+	if _, err := conn.Write([]byte(connectReq)); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to write CONNECT request: %w", err)
+	}
+
+	br := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(br, &http.Request{Method: "CONNECT"})
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to read CONNECT response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		conn.Close()
+		return nil, fmt.Errorf("proxy connection failed: %s", resp.Status)
+	}
+
+	return conn, nil
+}
+
+func createContextDialer(proxyStr string) (func(context.Context, string) (net.Conn, error), error) {
+	pd, err := newProxyDialer(proxyStr)
 	if err != nil {
 		return nil, err
 	}
 
-	return func(ctx context.Context, addr string) (net.Conn, error) {
-		return dialer.Dial("tcp", addr)
-	}, nil
+	return pd.dialProxy, nil
 }
 
 func (c *Client) Close() error {
