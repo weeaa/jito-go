@@ -179,7 +179,7 @@ func (d *proxyDialer) dialProxy(ctx context.Context, addr string) (net.Conn, err
 		addr, addr, d.auth,
 	)
 
-	if _, err := conn.Write([]byte(connectReq)); err != nil {
+	if _, err = conn.Write([]byte(connectReq)); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("failed to write CONNECT request: %w", err)
 	}
@@ -416,14 +416,33 @@ type BroadcastBundleResponse struct {
 }
 
 // BroadcastBundle sends a bundle through Jito API.
-func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBundleResponse, error) {
+func BroadcastBundle(client *http.Client, encoding Encoding, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
 	buf := new(bytes.Buffer)
+
+	var txns []string
+	var err error
+	switch encoding {
+	case Base58:
+		txns, err = pkg.ConvertBachTransactionsToBase58(transactions)
+		if err != nil {
+			return nil, err
+		}
+		break
+	case Base64:
+		txns, err = pkg.ConvertBachTransactionsToBase64(transactions)
+		if err != nil {
+			return nil, err
+		}
+		break
+	default:
+		return nil, errors.New("unknown encoding, expected base64 or base58")
+	}
 
 	payload := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "sendBundle",
-		"params":  [][]string{transactions},
+		"params":  [][]string{txns},
 	}
 
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
@@ -453,12 +472,8 @@ func BroadcastBundle(client *http.Client, transactions []string) (*BroadcastBund
 }
 
 // BroadcastBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
-func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
-	txsBase58, err := pkg.ConvertBachTransactionsToBase58(transactions)
-	if err != nil {
-		return nil, err
-	}
-	bundle, err := BroadcastBundle(client, txsBase58)
+func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, encoding Encoding, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
+	bundle, err := BroadcastBundle(client, encoding, transactions)
 	if err != nil {
 		return nil, err
 	}

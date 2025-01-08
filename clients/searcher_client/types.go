@@ -10,6 +10,13 @@ import (
 	"net/url"
 )
 
+type Encoding string
+
+var (
+	Base64 Encoding
+	Base58 Encoding
+)
+
 var DefaultHeader = http.Header{
 	"Content-Type": {"application/json"},
 	"User-Agent":   {"jito-go :)"},
