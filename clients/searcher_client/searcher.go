@@ -73,6 +73,7 @@ func New(
 }
 
 // NewNoAuth initializes and returns a new instance of the Searcher Client which does not require private key signing.
+// Proxy feature allows you to have different Jito clients running on the same machine without hitting rate limits due to IP limits.
 func NewNoAuth(
 	ctx context.Context,
 	grpcDialURL string,
@@ -379,8 +380,8 @@ func (c *Client) NewBundleSubscriptionResults(opts ...grpc.CallOption) (jito_pb.
 	return c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{}, opts...)
 }
 
-// BroadcastBundle sends a bundle of transaction(s) on chain through Jito.
-func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
+// SendBundle sends a bundle of transaction(s) on chain through Jito.
+func (c *Client) SendBundle(transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
 	bundle, err := c.AssembleBundle(transactions)
 	if err != nil {
 		return nil, err
@@ -389,14 +390,14 @@ func (c *Client) BroadcastBundle(transactions []*solana.Transaction, opts ...grp
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &jito_pb.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
-// SpamBundle spams BroadcastBundle (spam being the amount of bundles sent). Beware, it uses goroutines 😉.
+// SpamBundle spams SendBundle (spam being the amount of bundles sent). Beware, it uses goroutines 😉.
 func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, opts ...grpc.CallOption) ([]*jito_pb.SendBundleResponse, []error) {
 	bundles := make([]*jito_pb.SendBundleResponse, spam)
 	errs := make([]error, spam)
 	mu := sync.Mutex{}
 	for i := 0; i < spam; i++ {
 		go func() {
-			bundle, err := c.BroadcastBundle(transactions, opts...)
+			bundle, err := c.SendBundle(transactions, opts...)
 			if err != nil {
 				errs = append(errs, err)
 				return
@@ -409,14 +410,14 @@ func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, opts .
 	return bundles, errs
 }
 
-type BroadcastBundleResponse struct {
+type SendBundleResponse struct {
 	Jsonrpc string `json:"jsonrpc"`
 	Result  string `json:"result"`
 	Id      int    `json:"id"`
 }
 
-// BroadcastBundle sends a bundle through Jito API.
-func BroadcastBundle(client *http.Client, encoding Encoding, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
+// SendBundle sends a bundle through Jito API.
+func SendBundle(client *http.Client, encoding Encoding, transactions []*solana.Transaction) (*SendBundleResponse, error) {
 	buf := new(bytes.Buffer)
 
 	var txns []string
@@ -466,14 +467,14 @@ func BroadcastBundle(client *http.Client, encoding Encoding, transactions []*sol
 		return nil, fmt.Errorf("BroadcastBundle error: unexpected response status %s", resp.Status)
 	}
 
-	var out BroadcastBundleResponse
+	var out SendBundleResponse
 	err = json.NewDecoder(resp.Body).Decode(&out)
 	return &out, err
 }
 
-// BroadcastBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
-func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, encoding Encoding, transactions []*solana.Transaction) (*BroadcastBundleResponse, error) {
-	bundle, err := BroadcastBundle(client, encoding, transactions)
+// SendBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
+func SendBundleWithConfirmation(ctx context.Context, client *http.Client, rpcConn *rpc.Client, encoding Encoding, transactions []*solana.Transaction) (*SendBundleResponse, error) {
+	bundle, err := SendBundle(client, encoding, transactions)
 	if err != nil {
 		return nil, err
 	}
@@ -538,9 +539,9 @@ func BroadcastBundleWithConfirmation(ctx context.Context, client *http.Client, r
 	}
 }
 
-// BroadcastBundleWithConfirmation sends a bundle of transactions on chain thru Jito BlockEngine and waits for its confirmation.
-func (c *Client) BroadcastBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
-	bundle, err := c.BroadcastBundle(transactions, opts...)
+// SendBundleWithConfirmation sends a bundle of transactions on chain through Jito BlockEngine and waits for its confirmation.
+func (c *Client) SendBundleWithConfirmation(ctx context.Context, transactions []*solana.Transaction, opts ...grpc.CallOption) (*jito_pb.SendBundleResponse, error) {
+	bundle, err := c.SendBundle(transactions, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -897,7 +898,7 @@ func GetTipAccounts(client *http.Client) (*GetTipAccountsResponse, error) {
 // It forwards the received transaction as a regular Solana transaction via the Solana RPC method and submits it as a bundle.
 // Jito no longer provides a minimum tip for the bundle.
 // Please note that this minimum tip might not be sufficient to get the bundle through the auction, especially during high-demand periods.
-// Additionally, you need to set a priority fee and jito tip to ensure this transaction is setup correctly.
+// Additionally, you need to set a priority fee and jito tip to ensure this transaction is set up correctly.
 // Otherwise, if you set the query parameter bundleOnly=true, the transaction will only be sent out as a bundle and not as a regular transaction via RPC.
 func SendTransaction(client *http.Client, sig string, bundleOnly bool) (*TransactionResponse, error) {
 	buf := new(bytes.Buffer)
