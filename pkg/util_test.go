@@ -2,6 +2,8 @@ package pkg
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
+	"net/http"
 	"testing"
 )
 
@@ -22,4 +24,10 @@ loop:
 			break loop
 		}
 	}
+}
+
+func TestGetTipInfo(t *testing.T) {
+	tipInfo, err := GetTipInformation(&http.Client{})
+	assert.NoError(t, err)
+	assert.NotNil(t, tipInfo)
 }

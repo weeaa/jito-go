@@ -2,10 +2,14 @@ package pkg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gorilla/websocket"
+	"io"
 	"math/big"
+	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -98,4 +102,37 @@ func TxToStr(txns []*solana.Transaction) []string {
 		txnsStr = append(txnsStr, tx.String())
 	}
 	return txnsStr
+}
+
+func GetTipInformation(client *http.Client) (*[]TipStreamInfo, error) {
+	if client == nil {
+		client = &http.Client{}
+	}
+
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    &url.URL{Scheme: "https", Host: "bundles.jito.wtf", Path: "/api/v1/bundles/tip_floor"},
+		Header: http.Header{
+			"User-Agent": {"jito-go"},
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response status, got %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var tipInfo []TipStreamInfo
+	err = json.Unmarshal(body, &tipInfo)
+	return &tipInfo, err
 }
