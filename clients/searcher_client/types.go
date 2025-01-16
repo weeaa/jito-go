@@ -17,6 +17,10 @@ var (
 	Base58 Encoding
 )
 
+func (e Encoding) String() string {
+	return string(e)
+}
+
 var DefaultHeader = http.Header{
 	"Content-Type": {"application/json"},
 	"User-Agent":   {"jito-go :)"},
