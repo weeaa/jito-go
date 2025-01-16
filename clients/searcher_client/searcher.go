@@ -446,6 +446,10 @@ func SendBundle(client *http.Client, encoding Encoding, transactions []*solana.T
 		"params":  [][]string{txns},
 	}
 
+	if encoding == Base64 {
+		payload["encoding"] = encoding
+	}
+
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
 		return nil, err
 	}
@@ -486,7 +490,6 @@ func SendBundleWithConfirmation(ctx context.Context, client *http.Client, rpcCon
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-
 			time.Sleep(5 * time.Second)
 
 			bundleStatuses, err := GetInflightBundleStatuses(client, []string{bundle.Result})
@@ -639,15 +642,15 @@ func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleR
 			if value.BundleId == bundleID {
 				switch value.Status {
 				case "Invalid":
-					return fmt.Errorf("bundle %d is invalid", i)
+					return fmt.Errorf("bundle %d is invalid: %s", i, bundleID)
 				case "Pending":
-					return fmt.Errorf("bundle %d is pending", i)
+					return fmt.Errorf("bundle %d is pending: %s", i, bundleID)
 				case "Failed":
-					return fmt.Errorf("bundle %d failed to land", i)
+					return fmt.Errorf("bundle %d failed to land: %s", i, bundleID)
 				case "Landed":
 					return nil
 				default:
-					return fmt.Errorf("bundle %d unknown error", i)
+					return fmt.Errorf("bundle %d unknown error: %s", i, bundleID)
 				}
 			}
 		}
@@ -900,14 +903,21 @@ func GetTipAccounts(client *http.Client) (*GetTipAccountsResponse, error) {
 // Please note that this minimum tip might not be sufficient to get the bundle through the auction, especially during high-demand periods.
 // Additionally, you need to set a priority fee and jito tip to ensure this transaction is set up correctly.
 // Otherwise, if you set the query parameter bundleOnly=true, the transaction will only be sent out as a bundle and not as a regular transaction via RPC.
-func SendTransaction(client *http.Client, sig string, bundleOnly bool) (*TransactionResponse, error) {
+func SendTransaction(client *http.Client, sig string, bundleOnly bool, encoding Encoding) (*TransactionResponse, error) {
 	buf := new(bytes.Buffer)
+
+	params := []any{sig}
+	if encoding == Base64 {
+		params = append(params, map[string]string{
+			"encoding": encoding.String(),
+		})
+	}
 
 	payload := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "sendTransaction",
-		"params":  []string{sig},
+		"params":  params,
 	}
 
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
