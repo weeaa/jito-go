@@ -37,7 +37,7 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
 - [x] API
 
 ## 📋 ToDo
-- tbd
+- Implement rest of the data REST API endpoints (arbitrage)
 
 ## 📡 Methods
 - `💀* methods which are deprecated by Jito`
@@ -46,6 +46,8 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
 
 
 - [x] **Searcher**
+
+Supports a `New` func which authenticates with your private key, and a `NewNoAuth` func which does not require to be whitelisted by Jito. Multiple clients can be created using different proxies to increase request capacity. Please use responsibly.
   - `SubscribeMempoolAccounts` 💀
   - `SubscribeMempoolPrograms` 💀
   - `GetNextScheduledLeader`
@@ -75,6 +77,8 @@ If my work has been useful in building your for-profit services/infra/bots/etc, 
 - [x] **API** (api/api.go)
   - `RetrieveRecentBundles`
   - `RetrieveBundleIDfromTransactionSignature`
+  - `GetBundleInfo`
+  - `GetDailyMevRewards`
 
 ## 💾 Installing
 

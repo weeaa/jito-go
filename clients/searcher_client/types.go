@@ -10,6 +10,17 @@ import (
 	"net/url"
 )
 
+var MINIMUM_TIP uint64 = 1000
+
+type BundleStatus string
+
+var (
+	Invalid BundleStatus = "Invalid"
+	Pending BundleStatus = "Pending"
+	Failed  BundleStatus = "Failed"
+	Landed  BundleStatus = "Landed"
+)
+
 type Encoding string
 
 var (

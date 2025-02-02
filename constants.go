@@ -101,7 +101,7 @@ var JitoEndpoints = map[string]JitoEndpointInfo{
 		BlockEngineURL:    "ny.testnet.block-engine.jito.wtf:443",
 		RelayerURL:        "nyc.testnet.relayer.jito.wtf:8100",
 		ShredReceiverAddr: "141.98.216.97:1002",
-		Ntp:               "ntp.dallas.jito.wtf", // Dallas NTP is suitable for NY connections (from jito's doc)
+		Ntp:               "ntp.dallas.jito.wtf", // Dallas NTP is suitable for NY connections (from Jito's doc)
 	},
 }
 

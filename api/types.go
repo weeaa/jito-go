@@ -12,7 +12,7 @@ var (
 
 	headers = http.Header{
 		"Referer":    {"https://explorer.jito.wtf/"},
-		"User-Agent": {"jito-golang :)"},
+		"User-Agent": {"jito-golang"},
 	}
 )
 
@@ -50,4 +50,12 @@ type GetBundleInfoResponse struct {
 	BlockIndex        int       `json:"blockIndex"`
 	Timestamp         time.Time `json:"timestamp"`
 	TxSignatures      []string  `json:"txSignatures"`
+}
+
+type GetDailyMevRewardsResponse struct {
+	Day           string  `json:"day"`
+	CountMevTips  int     `json:"count_mev_tips"`
+	JitoTips      float64 `json:"jito_tips"`
+	Tippers       int     `json:"tippers"`
+	ValidatorTips float64 `json:"validator_tips"`
 }

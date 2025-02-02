@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -29,14 +30,10 @@ func Test_SearcherClient(t *testing.T) {
 	defer cancel()
 
 	privKey, ok := os.LookupEnv("PRIVATE_KEY")
-	if !assert.True(t, ok, "getting PRIVATE_KEY from .env") {
-		t.FailNow()
-	}
+	assert.True(t, ok, "getting PRIVATE_KEY from .env")
 
 	rpcAddr, ok := os.LookupEnv("JITO_RPC")
-	if !assert.True(t, ok, "getting JITO_RPC from .env") {
-		t.FailNow()
-	}
+	assert.True(t, ok, "getting JITO_RPC from .env")
 
 	client, err := New(
 		ctx,
@@ -49,7 +46,7 @@ func Test_SearcherClient(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
-	defer client.GrpcConn.Close()
+	defer client.Close()
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -80,23 +77,27 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("GetConnectedLeaders", func(t *testing.T) {
-		_, err = client.GetConnectedLeaders()
+		leaders, err := client.GetConnectedLeaders()
 		assert.NoError(t, err)
+		assert.NotNil(t, leaders)
 	})
 
 	t.Run("GetConnectedLeadersRegioned", func(t *testing.T) {
-		_, err = client.GetConnectedLeadersRegioned(regions)
+		leadersRegioned, err := client.GetConnectedLeadersRegioned(regions)
 		assert.NoError(t, err)
+		assert.NotNil(t, leadersRegioned)
 	})
 
 	t.Run("GetTipAccounts", func(t *testing.T) {
-		_, err = client.GetTipAccounts()
+		tipAccounts, err := client.GetTipAccounts()
 		assert.NoError(t, err)
+		assert.NotNil(t, tipAccounts)
 	})
 
 	t.Run("GetNextScheduledLeader", func(t *testing.T) {
-		_, err = client.GetNextScheduledLeader(regions)
+		scheduledLeader, err := client.GetNextScheduledLeader(regions)
 		assert.NoError(t, err)
+		assert.NotNil(t, scheduledLeader)
 	})
 
 	t.Run("SubscribeMempoolAccount", func(t *testing.T) {
@@ -188,15 +189,11 @@ func Test_SearcherClient(t *testing.T) {
 		var tx *solana.Transaction
 
 		blockHash, err = client.RpcConn.GetRecentBlockhash(ctx, rpc.CommitmentConfirmed)
-		if !assert.NoError(t, err, "getting recent block hash from RPC") {
-			t.FailNow()
-		}
+		assert.NoError(t, err, "getting recent block hash from RPC")
 
-		var tipInst solana.Instruction
-		tipInst, err = client.GenerateTipRandomAccountInstruction(1000000, fundedWallet.PublicKey())
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		tipInst, err := client.GenerateTipRandomAccountInstruction(MINIMUM_TIP, fundedWallet.PublicKey())
+		assert.NoError(t, err)
+		//assert.IsType(t, solana.Instruction(), tipInst)
 
 		tx, err = solana.NewTransaction(
 			[]solana.Instruction{
@@ -210,9 +207,8 @@ func Test_SearcherClient(t *testing.T) {
 			blockHash.Value.Blockhash,
 			solana.TransactionPayer(fundedWallet.PublicKey()),
 		)
-		if !assert.NoError(t, err, "creating solana transaction") {
-			t.FailNow()
-		}
+		assert.NoError(t, err, "creating solana transaction")
+		assert.NotNil(t, tx)
 
 		_, err = tx.Sign(
 			func(key solana.PublicKey) *solana.PrivateKey {
@@ -222,11 +218,9 @@ func Test_SearcherClient(t *testing.T) {
 				return nil
 			},
 		)
-		if !assert.NoError(t, err, "signing transaction") {
-			t.FailNow()
-		}
+		assert.NoError(t, err, "signing transaction")
 
-		_, err = client.SimulateBundle(
+		simulateBundleResp, err := client.SimulateBundle(
 			ctx,
 			SimulateBundleParams{
 				EncodedTransactions: []string{tx.MustToBase64()},
@@ -247,35 +241,62 @@ func Test_SearcherClient(t *testing.T) {
 			},
 		)
 		assert.NoError(t, err, "simulating bundle")
+		assert.NotNil(t, simulateBundleResp)
 	})
 
 	t.Run("GetBundleStatuses_Client", func(t *testing.T) {
-		_, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		bundleStatuses, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
+		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("BatchGetBundleStatuses_Client", func(t *testing.T) {
-		_, err := client.BatchGetBundleStatuses(ctx, bundles...)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		bundleStatuses, err := client.BatchGetBundleStatuses(ctx, bundles...)
+		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("GetBundleStatuses_Http", func(t *testing.T) {
-		_, err := GetBundleStatuses(httpClient, []string{bundles[0]})
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		bundleStatuses, err := GetBundleStatuses(httpClient, []string{bundles[0]})
+		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("BatchGetBundleStatuses_Http", func(t *testing.T) {
-		_, err := BatchGetBundleStatuses(httpClient, bundles...)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+		bundleStatuses, err := BatchGetBundleStatuses(httpClient, bundles...)
+		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
+}
+
+func TestNewNoAuthProxy(t *testing.T) {
+	proxyStr, ok := os.LookupEnv("PROXY_URL")
+	assert.True(t, ok)
+	assert.NotEmpty(t, proxyStr)
+
+	proxylessClient, err := NewNoAuth(context.Background(), jito_go.NewYork.BlockEngineURL, nil, nil, "", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, proxylessClient)
+
+	client, err := NewNoAuth(context.Background(), jito_go.NewYork.BlockEngineURL, nil, nil, proxyStr, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, client)
+
+	for i := 0; i < 10; i++ { // we use 10 but u get rate limited if u do more than 1 req per sec
+		resp, err := client.GetRegions()
+		if err != nil {
+			if strings.Contains(err.Error(), "Rate limit exceeded") {
+				resp, err = proxylessClient.GetRegions()
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				break
+			} else {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		} else {
+			assert.NotNil(t, resp)
+		}
+	}
 }
 
 func Test_SearcherClientNoAuth(t *testing.T) {

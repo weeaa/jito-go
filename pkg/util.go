@@ -54,6 +54,8 @@ func SubscribeTipStream(ctx context.Context) (<-chan []*TipStreamInfo, <-chan er
 
 	go func() {
 		defer conn.Close()
+		defer close(ch)
+		defer close(chErr)
 		for {
 			select {
 			case <-ctx.Done():

@@ -30,7 +30,7 @@ import (
 // New creates a new Searcher Client instance.
 func New(
 	ctx context.Context,
-	grpcDialURL string,
+	blockEngineURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
 	privateKey solana.PrivateKey,
 	tlsConfig *tls.Config,
@@ -45,7 +45,7 @@ func New(
 	}
 
 	chErr := make(chan error)
-	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, blockEngineURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func New(
 // Proxy feature allows you to have different Jito clients running on the same machine without hitting rate limits due to IP limits.
 func NewNoAuth(
 	ctx context.Context,
-	grpcDialURL string,
+	blockEngineURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
 	proxyURL string,
 	tlsConfig *tls.Config,
@@ -106,7 +106,7 @@ func NewNoAuth(
 	}
 
 	chErr := make(chan error)
-	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, grpcDialURL, opts...)
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, blockEngineURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (d *proxyDialer) dialProxy(ctx context.Context, addr string) (net.Conn, err
 		"CONNECT %s HTTP/1.1\r\n"+
 			"Host: %s\r\n"+
 			"Proxy-Authorization: Basic %s\r\n"+
-			"User-Agent: Go-http-client/1.1\r\n"+
+			"User-Agent: jito-go/1.1\r\n"+
 			"\r\n",
 		addr, addr, d.auth,
 	)
@@ -390,22 +390,28 @@ func (c *Client) SendBundle(transactions []*solana.Transaction, opts ...grpc.Cal
 	return c.SearcherService.SendBundle(c.Auth.GrpcCtx, &jito_pb.SendBundleRequest{Bundle: bundle}, opts...)
 }
 
-// SpamBundle spams SendBundle (spam being the amount of bundles sent). Beware, it uses goroutines 😉.
-func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, opts ...grpc.CallOption) ([]*jito_pb.SendBundleResponse, []error) {
+// SpamBundle spams SendBundle (spam being the amount of bundles sent). If async is true, it will use goroutines.
+func (c *Client) SpamBundle(transactions []*solana.Transaction, spam int, async bool, opts ...grpc.CallOption) ([]*jito_pb.SendBundleResponse, []error) {
 	bundles := make([]*jito_pb.SendBundleResponse, spam)
 	errs := make([]error, spam)
 	mu := sync.Mutex{}
+
+	f := func() {
+		bundle, err := c.SendBundle(transactions, opts...)
+		if err != nil {
+			errs = append(errs, err)
+			return
+		}
+		mu.Lock()
+		bundles = append(bundles, bundle)
+		mu.Unlock()
+	}
 	for i := 0; i < spam; i++ {
-		go func() {
-			bundle, err := c.SendBundle(transactions, opts...)
-			if err != nil {
-				errs = append(errs, err)
-				return
-			}
-			mu.Lock()
-			bundles = append(bundles, bundle)
-			mu.Unlock()
-		}()
+		if async {
+			go f()
+		} else {
+			f()
+		}
 	}
 	return bundles, errs
 }
@@ -484,13 +490,14 @@ func SendBundleWithConfirmation(ctx context.Context, client *http.Client, rpcCon
 	}
 
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
+	isRPCNil(rpcConn)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			time.Sleep(5 * time.Second)
+			time.Sleep(3 * time.Second)
 
 			bundleStatuses, err := GetInflightBundleStatuses(client, []string{bundle.Result})
 			if err != nil {
@@ -498,16 +505,17 @@ func SendBundleWithConfirmation(ctx context.Context, client *http.Client, rpcCon
 			}
 
 			if err = handleBundleResult(bundleStatuses, bundle.Result); err != nil {
+				if err.Error() == "pending" {
+					continue
+				}
 				return bundle, err
 			}
 
-			var start = time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
-
-			isRPCNil(rpcConn)
+			var start = time.Now()
 
 			for {
-				statuses, err = rpcConn.GetSignatureStatuses(context.Background(), false, bundleSignatures...)
+				statuses, err = rpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
 				if err != nil {
 					return bundle, err
 				}
@@ -550,14 +558,13 @@ func (c *Client) SendBundleWithConfirmation(ctx context.Context, transactions []
 	}
 
 	bundleSignatures := pkg.BatchExtractSigFromTx(transactions)
+	isRPCNil(c.RpcConn)
 
 	for {
 		select {
 		case <-c.Auth.GrpcCtx.Done():
 			return nil, c.Auth.GrpcCtx.Err()
 		default:
-			time.Sleep(5 * time.Second)
-
 			bundleResult, err := c.BundleStreamSubscription.Recv()
 			if err != nil {
 				return bundle, err
@@ -567,10 +574,8 @@ func (c *Client) SendBundleWithConfirmation(ctx context.Context, transactions []
 				return bundle, err
 			}
 
-			var start = time.Now()
 			var statuses *rpc.GetSignatureStatusesResult
-
-			isRPCNil(c.RpcConn)
+			var start = time.Now()
 
 			for {
 				statuses, err = c.RpcConn.GetSignatureStatuses(ctx, false, bundleSignatures...)
@@ -644,7 +649,7 @@ func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleR
 				case "Invalid":
 					return fmt.Errorf("bundle %d is invalid: %s", i, bundleID)
 				case "Pending":
-					return fmt.Errorf("bundle %d is pending: %s", i, bundleID)
+					return errors.New("pending")
 				case "Failed":
 					return fmt.Errorf("bundle %d failed to land: %s", i, bundleID)
 				case "Landed":
@@ -660,8 +665,10 @@ func handleBundleResult[T *GetInflightBundlesStatusesResponse | *jito_pb.BundleR
 
 // SimulateBundle is an RPC method that simulates a Jito bundle – exclusively available to Jito-Solana validator.
 func (c *Client) SimulateBundle(ctx context.Context, bundleParams SimulateBundleParams, simulationConfigs SimulateBundleConfig) (*SimulatedBundleResponse, error) {
-	if len(bundleParams.EncodedTransactions) != len(simulationConfigs.PreExecutionAccountsConfigs) {
-		return nil, errors.New("pre/post execution account config length must match bundle length")
+	encodedTxLen := len(bundleParams.EncodedTransactions)
+	preExecAccCfgLen := len(simulationConfigs.PreExecutionAccountsConfigs)
+	if encodedTxLen != preExecAccCfgLen {
+		return nil, fmt.Errorf("pre/post execution account config length must match bundle length: encodedTxLen: %d && preExecutionAccountsConfigsLen: %d", encodedTxLen, preExecAccCfgLen)
 	}
 
 	var out SimulatedBundleResponse
