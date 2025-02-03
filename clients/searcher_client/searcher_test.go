@@ -2,7 +2,6 @@ package searcher_client
 
 import (
 	"context"
-	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -177,25 +176,22 @@ func Test_SearcherClient(t *testing.T) {
 	})
 
 	t.Run("SimulateBundle", func(t *testing.T) {
-		var pkey string
-		pkey, ok = os.LookupEnv("PRIVATE_KEY_WITH_FUNDS")
+		pkey, ok := os.LookupEnv("PRIVATE_KEY_WITH_FUNDS")
 		assert.True(t, ok, "getting PRIVATE_KEY_WITH_FUNDS from .env")
+		assert.NotEmpty(t, pkey)
 
-		var fundedWallet solana.PrivateKey
-		fundedWallet, err = solana.PrivateKeyFromBase58(pkey)
+		fundedWallet, err := solana.PrivateKeyFromBase58(pkey)
 		assert.NoError(t, err, "converting private key with funds to type solana.PrivateKey")
+		assert.NotEmpty(t, fundedWallet)
 
-		var blockHash *rpc.GetRecentBlockhashResult
-		var tx *solana.Transaction
-
-		blockHash, err = client.RpcConn.GetRecentBlockhash(ctx, rpc.CommitmentConfirmed)
+		blockHash, err := client.RpcConn.GetRecentBlockhash(ctx, rpc.CommitmentConfirmed)
 		assert.NoError(t, err, "getting recent block hash from RPC")
+		assert.NotNil(t, blockHash)
 
 		tipInst, err := client.GenerateTipRandomAccountInstruction(MINIMUM_TIP, fundedWallet.PublicKey())
 		assert.NoError(t, err)
-		//assert.IsType(t, solana.Instruction(), tipInst)
 
-		tx, err = solana.NewTransaction(
+		tx, err := solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
 					10000000,
@@ -305,6 +301,7 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 
 	rpcAddr, ok := os.LookupEnv("JITO_RPC")
 	assert.True(t, ok)
+	assert.NotEmpty(t, rpcAddr)
 
 	client, err := NewNoAuth(
 		ctx,
@@ -315,8 +312,9 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 		nil,
 	)
 	assert.NoError(t, err)
+	assert.NotNil(t, client)
 
-	defer client.GrpcConn.Close()
+	defer client.Close()
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -340,10 +338,8 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	}
 
 	t.Run("GetRegions", func(t *testing.T) {
-		var resp *jito_pb.GetRegionsResponse
-		resp, err = client.GetRegions()
+		resp, err := client.GetRegions()
 		assert.NoError(t, err)
-		fmt.Println(resp.CurrentRegion)
 		assert.Equal(t, jito_go.NewYork.Region, resp.CurrentRegion)
 	})
 
@@ -358,8 +354,9 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	})
 
 	t.Run("GetTipAccounts", func(t *testing.T) {
-		_, err = client.GetTipAccounts()
+		tipAccounts, err := client.GetTipAccounts()
 		assert.NoError(t, err)
+		assert.NotNil(t, tipAccounts)
 	})
 
 	t.Run("GetNextScheduledLeader", func(t *testing.T) {
@@ -443,32 +440,26 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	})
 
 	t.Run("SimulateBundle", func(t *testing.T) {
-		var pkey string
-		pkey, ok = os.LookupEnv("PRIVATE_KEY_WITH_FUNDS")
+		pkey, ok := os.LookupEnv("PRIVATE_KEY_WITH_FUNDS")
 		assert.True(t, ok, "getting PRIVATE_KEY_WITH_FUNDS from .env")
+		assert.NotEmpty(t, pkey)
 
-		var fundedWallet solana.PrivateKey
-		fundedWallet, err = solana.PrivateKeyFromBase58(pkey)
+		fundedWallet, err := solana.PrivateKeyFromBase58(pkey)
 		assert.NoError(t, err, "converting private key with funds to type solana.PrivateKey")
+		assert.NotEmpty(t, fundedWallet)
 
-		var blockHash *rpc.GetLatestBlockhashResult
-		var tx *solana.Transaction
+		blockHash, err := client.RpcConn.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+		assert.NoError(t, err, "getting recent block hash from RPC")
+		assert.NotNil(t, blockHash)
 
-		blockHash, err = client.RpcConn.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
-		if !assert.NoError(t, err, "getting recent block hash from RPC") {
-			t.FailNow()
-		}
+		tipInst, err := client.GenerateTipRandomAccountInstruction(1000000, fundedWallet.PublicKey())
+		assert.NoError(t, err)
+		assert.NotNil(t, tipInst)
 
-		var tipInst solana.Instruction
-		tipInst, err = client.GenerateTipRandomAccountInstruction(1000000, fundedWallet.PublicKey())
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
-
-		tx, err = solana.NewTransaction(
+		tx, err := solana.NewTransaction(
 			[]solana.Instruction{
 				system.NewTransferInstruction(
-					10000000,
+					MINIMUM_TIP,
 					fundedWallet.PublicKey(),
 					solana.MustPublicKeyFromBase58("A6njahNqC6qKde6YtbHdr1MZsB5KY9aKfzTY1cj8jU3v"),
 				).Build(),
@@ -477,9 +468,8 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 			blockHash.Value.Blockhash,
 			solana.TransactionPayer(fundedWallet.PublicKey()),
 		)
-		if !assert.NoError(t, err, "creating solana transaction") {
-			t.FailNow()
-		}
+		assert.NoError(t, err)
+		assert.NotNil(t, tx)
 
 		_, err = tx.Sign(
 			func(key solana.PublicKey) *solana.PrivateKey {
@@ -489,9 +479,7 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 				return nil
 			},
 		)
-		if !assert.NoError(t, err, "signing transaction") {
-			t.FailNow()
-		}
+		assert.NoError(t, err)
 
 		_, err = client.SimulateBundle(
 			ctx,
@@ -517,23 +505,27 @@ func Test_SearcherClientNoAuth(t *testing.T) {
 	})
 
 	t.Run("GetBundleStatuses_Client", func(t *testing.T) {
-		_, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
+		bundleStatuses, err := client.GetBundleStatuses(ctx, []string{bundles[0]})
 		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("BatchGetBundleStatuses_Client", func(t *testing.T) {
-		_, err = client.BatchGetBundleStatuses(ctx, bundles...)
+		bundleStatuses, err := client.BatchGetBundleStatuses(ctx, bundles...)
 		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("GetBundleStatuses_Http", func(t *testing.T) {
-		_, err := GetBundleStatuses(httpClient, []string{bundles[0]})
+		bundleStatuses, err := GetBundleStatuses(httpClient, []string{bundles[0]})
 		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 
 	t.Run("BatchGetBundleStatuses_Http", func(t *testing.T) {
-		_, err := BatchGetBundleStatuses(httpClient, bundles...)
+		bundleStatuses, err := BatchGetBundleStatuses(httpClient, bundles...)
 		assert.NoError(t, err)
+		assert.NotNil(t, bundleStatuses)
 	})
 }
 

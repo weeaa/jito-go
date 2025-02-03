@@ -1,25 +1,26 @@
 package searcher_client
 
 import (
+	"crypto/tls"
+	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/weeaa/jito-go/pb"
 	"github.com/weeaa/jito-go/pkg"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"math/big"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+var defaultKeepAlive = grpc.WithKeepaliveParams(keepalive.ClientParameters{
+	Time:                15 * time.Second,
+	Timeout:             5 * time.Second,
+	PermitWithoutStream: true,
+})
 
 var MINIMUM_TIP uint64 = 1000
-
-type BundleStatus string
-
-var (
-	Invalid BundleStatus = "Invalid"
-	Pending BundleStatus = "Pending"
-	Failed  BundleStatus = "Failed"
-	Landed  BundleStatus = "Landed"
-)
 
 type Encoding string
 
@@ -54,6 +55,15 @@ type Client struct {
 	Auth *pkg.AuthenticationService
 
 	ErrChan chan error // ErrChan is used for dispatching errors from functions executed within goroutines.
+}
+
+type Opts struct {
+	BlockEngineURL           string
+	JitoRpcClient, RpcClient *rpc.Client
+	PrivateKey               solana.PrivateKey
+	ProxyURL                 string
+	TLSConfig                *tls.Config
+	GrpcOptions              []grpc.DialOption
 }
 
 type SimulateBundleConfig struct {

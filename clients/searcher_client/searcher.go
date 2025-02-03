@@ -16,7 +16,6 @@ import (
 	"github.com/weeaa/jito-go/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"io"
 	"math/rand"
 	"net"
@@ -35,9 +34,7 @@ func New(
 	privateKey solana.PrivateKey,
 	tlsConfig *tls.Config,
 	opts ...grpc.DialOption,
-) (
-	*Client, error) {
-
+) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -61,7 +58,7 @@ func New(
 		return nil, err
 	}
 
-	return &Client{
+	client := Client{
 		GrpcConn:                 conn,
 		RpcConn:                  rpcClient,
 		JitoRpcConn:              jitoRpcClient,
@@ -69,20 +66,20 @@ func New(
 		BundleStreamSubscription: subBundleRes,
 		Auth:                     authService,
 		ErrChan:                  chErr,
-	}, nil
+	}
+
+	return &client, nil
 }
 
 // NewNoAuth initializes and returns a new instance of the Searcher Client which does not require private key signing.
 // Proxy feature allows you to have different Jito clients running on the same machine without hitting rate limits due to IP limits.
-func NewNoAuth(
-	ctx context.Context,
+func NewNoAuth(ctx context.Context,
 	blockEngineURL string,
 	jitoRpcClient, rpcClient *rpc.Client,
 	proxyURL string,
 	tlsConfig *tls.Config,
 	opts ...grpc.DialOption,
-) (
-	*Client, error) {
+) (*Client, error) {
 	if tlsConfig != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -97,11 +94,7 @@ func NewNoAuth(
 
 		opts = append(opts,
 			grpc.WithContextDialer(dialer),
-			grpc.WithKeepaliveParams(keepalive.ClientParameters{
-				Time:                15 * time.Second,
-				Timeout:             5 * time.Second,
-				PermitWithoutStream: true,
-			}),
+			defaultKeepAlive,
 		)
 	}
 
@@ -117,15 +110,59 @@ func NewNoAuth(
 		return nil, err
 	}
 
-	return &Client{
+	client := Client{
 		GrpcConn:                 conn,
 		RpcConn:                  rpcClient,
 		JitoRpcConn:              jitoRpcClient,
 		SearcherService:          searcherService,
 		BundleStreamSubscription: subBundleRes,
-		ErrChan:                  chErr,
 		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
-	}, nil
+		ErrChan:                  chErr,
+	}
+
+	return &client, nil
+}
+
+// RotateProxy updates the client's gRPC connection to use a new proxy URL. This allows dynamic rotation of proxies to avoid rate limits.
+func RotateProxy(client *Client, proxyURL string) error {
+	blockEngineURL := client.GrpcConn.Target()
+
+	dialer, err := createContextDialer(proxyURL)
+	if err != nil {
+		return fmt.Errorf("failed to create new proxy dialer: %w", err)
+	}
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+
+	opts = append(opts,
+		grpc.WithContextDialer(dialer),
+		defaultKeepAlive,
+	)
+
+	if err := client.GrpcConn.Close(); err != nil {
+		return fmt.Errorf("failed to close existing connection: %w", err)
+	}
+
+	chErr := make(chan error)
+	ctx := client.Auth.GrpcCtx
+	conn, err := pkg.CreateAndObserveGRPCConn(ctx, chErr, blockEngineURL, opts...)
+	if err != nil {
+		return fmt.Errorf("failed to create new connection: %w", err)
+	}
+
+	searcherService := jito_pb.NewSearcherServiceClient(conn)
+	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &jito_pb.SubscribeBundleResultsRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to resubscribe to bundle results: %w", err)
+	}
+
+	client.GrpcConn = conn
+	client.SearcherService = searcherService
+	client.BundleStreamSubscription = subBundleRes
+	client.ErrChan = chErr
+
+	return nil
 }
 
 func parseProxyString(proxyStr string) (host string, port string, username string, password string, err error) {
@@ -1024,4 +1061,32 @@ func NewDroppedBundle(message string) error {
 	return BundleRejectionError{
 		Message: fmt.Sprintf("bundle dropped %s", message),
 	}
+}
+
+// AddProxyToHttpClient adds a proxy to an existing HTTP client.
+func AddProxyToHttpClient(client *http.Client, proxy string) error {
+	if client == nil {
+		client = &http.Client{}
+	}
+
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
+	proxyURL, err := url.Parse(proxy)
+	if err != nil {
+		return fmt.Errorf("failed to parse proxy URL: %w", err)
+	}
+
+	t, ok := transport.(*http.Transport)
+	if !ok {
+		return errors.New("client transport is not an *http.Transport")
+	}
+
+	newTransport := t.Clone()
+	newTransport.Proxy = http.ProxyURL(proxyURL)
+	client.Transport = newTransport
+
+	return nil
 }
