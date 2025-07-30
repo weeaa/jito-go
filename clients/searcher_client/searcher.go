@@ -53,19 +53,13 @@ func New(
 		return nil, err
 	}
 
-	subBundleRes, err := searcherService.SubscribeBundleResults(authService.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{})
-	if err != nil {
-		return nil, err
-	}
-
 	client := Client{
-		GrpcConn:                 conn,
-		RpcConn:                  rpcClient,
-		JitoRpcConn:              jitoRpcClient,
-		SearcherService:          searcherService,
-		BundleStreamSubscription: subBundleRes,
-		Auth:                     authService,
-		ErrChan:                  chErr,
+		GrpcConn:        conn,
+		RpcConn:         rpcClient,
+		JitoRpcConn:     jitoRpcClient,
+		SearcherService: searcherService,
+		Auth:            authService,
+		ErrChan:         chErr,
 	}
 
 	return &client, nil
@@ -105,22 +99,32 @@ func NewNoAuth(ctx context.Context,
 	}
 
 	searcherService := jito_pb.NewSearcherServiceClient(conn)
-	subBundleRes, err := searcherService.SubscribeBundleResults(ctx, &jito_pb.SubscribeBundleResultsRequest{})
-	if err != nil {
-		return nil, err
-	}
 
 	client := Client{
-		GrpcConn:                 conn,
-		RpcConn:                  rpcClient,
-		JitoRpcConn:              jitoRpcClient,
-		SearcherService:          searcherService,
-		BundleStreamSubscription: subBundleRes,
-		Auth:                     &pkg.AuthenticationService{GrpcCtx: ctx},
-		ErrChan:                  chErr,
+		GrpcConn:        conn,
+		RpcConn:         rpcClient,
+		JitoRpcConn:     jitoRpcClient,
+		SearcherService: searcherService,
+		Auth:            &pkg.AuthenticationService{GrpcCtx: ctx},
+		ErrChan:         chErr,
 	}
 
 	return &client, nil
+}
+
+// EnableBundleStream subscribes to bundle results.
+func (c *Client) EnableBundleStream() error {
+	if c.BundleStreamSubscription != nil {
+		return nil // already subscribed
+	}
+
+	subBundleRes, err := c.SearcherService.SubscribeBundleResults(c.Auth.GrpcCtx, &jito_pb.SubscribeBundleResultsRequest{})
+	if err != nil {
+		return err
+	}
+
+	c.BundleStreamSubscription = subBundleRes
+	return nil
 }
 
 // RotateProxy updates the client's gRPC connection to use a new proxy URL. This allows dynamic rotation of proxies to avoid rate limits.
@@ -1081,7 +1085,7 @@ func AddProxyToHttpClient(client *http.Client, proxy string) error {
 
 	t, ok := transport.(*http.Transport)
 	if !ok {
-		return errors.New("client transport is not an *http.Transport")
+		return fmt.Errorf("client transport is not an *http.Transport: got %T", transport)
 	}
 
 	newTransport := t.Clone()
